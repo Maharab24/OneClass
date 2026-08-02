@@ -1,0 +1,14 @@
+# Build and dependency output
+target/
+dist/
+node_modules/
+
+# Archives
+*.zip
+*.tar.gz
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+*.log
