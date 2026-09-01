@@ -1,22 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './common/components/Header';
 import RoomJoinModal from './features/whiteboard/room/components/RoomJoinModal';
 import UserListSidebar from './features/whiteboard/room/components/UserListSidebar';
 import Toolbar from './features/whiteboard/drawing/components/Toolbar';
 import LiveCursors from './features/whiteboard/presence/components/LiveCursors';
 import WhiteboardCanvas from './features/whiteboard/drawing/components/WhiteboardCanvas';
+import FloatingChatWidget from './features/whiteboard/chat/components/FloatingChatWidget';
 import { stompService } from './features/whiteboard/drawing/services/stompClient';
 
 export default function App() {
-  const [room, setRoom] = useState(null); // { roomCode, hostUserId, currentUser, participants, elements }
+  const [room, setRoom] = useState(null); // { roomCode, hostUserId, currentUser, participants, elements, messages }
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState('CAN_WATCH');
   const [participants, setParticipants] = useState([]);
   const [elements, setElements] = useState([]);
   const [cursors, setCursors] = useState({});
+  const [messages, setMessages] = useState([]);
 
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -27,54 +31,66 @@ export default function App() {
 
   const canEdit = userRole === 'HOST' || userRole === 'CAN_EDIT';
 
+  // Keep references to mutable UI states for STOMP callbacks without stale closures
+  const chatOpenRef = useRef(chatOpen);
+  const currentUserRef = useRef(currentUser);
+  const seenMessageIdsRef = useRef(new Set());
+
+  useEffect(() => {
+    chatOpenRef.current = chatOpen;
+  }, [chatOpen]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   // Handle STOMP WebSocket subscriptions once room is joined
   useEffect(() => {
-    if (!room || !currentUser) return;
+    if (!room?.roomCode || !currentUser?.id) return;
 
     const roomCode = room.roomCode.toUpperCase();
+    const currentUserId = currentUser.id;
+    const currentUserName = currentUser.name;
 
     stompService.connect(
       () => {
-        // Subscribe to user list & role updates
-        stompService.subscribe(`/topic/room/${roomCode}/users`, (updatedUsers) => {
+        // 1. Subscribe to user list & role updates
+        const unsubUsers = stompService.subscribe(`/topic/room/${roomCode}/users`, (updatedUsers) => {
           const userList = Array.isArray(updatedUsers) ? updatedUsers : Object.values(updatedUsers);
           setParticipants(userList);
 
           // Update current user's role if modified by host
-          const self = userList.find((u) => u.id === currentUser.id);
-          if (self && self.role !== userRole) {
+          const self = userList.find((u) => u.id === currentUserId);
+          if (self) {
             setUserRole(self.role);
           }
         });
 
-        // Subscribe to drawing events
-        stompService.subscribe(`/topic/room/${roomCode}/draw`, (payload) => {
-          if (payload && payload.element) {
+        // 2. Subscribe to drawing events
+        const unsubDraw = stompService.subscribe(`/topic/room/${roomCode}/draw`, (payload) => {
+          if (payload?.element) {
             setElements((prev) => {
-              // Avoid duplicate elements if already drawn locally
-              if (prev.some((e) => e.id === payload.element.id)) {
-                return prev;
-              }
+              if (prev.some((e) => e.id === payload.element.id)) return prev;
               return [...prev, payload.element];
             });
           }
         });
 
-        // Subscribe to clear canvas event
-        stompService.subscribe(`/topic/room/${roomCode}/clear`, () => {
+        // 3. Subscribe to clear canvas event
+        const unsubClear = stompService.subscribe(`/topic/room/${roomCode}/clear`, () => {
           setElements([]);
         });
 
-        // Subscribe to element deletion event (Object Eraser)
-        stompService.subscribe(`/topic/room/${roomCode}/delete-element`, (payload) => {
-          if (payload && payload.elementId) {
+        // 4. Subscribe to element deletion event (Object Eraser)
+        const unsubDelete = stompService.subscribe(`/topic/room/${roomCode}/delete-element`, (payload) => {
+          if (payload?.elementId) {
             setElements((prev) => prev.filter((e) => e.id !== payload.elementId));
           }
         });
 
-        // Subscribe to live remote cursors (filtered for Editors only)
-        stompService.subscribe(`/topic/room/${roomCode}/cursors`, (cursorPayload) => {
-          if (cursorPayload && cursorPayload.userId !== currentUser.id) {
+        // 5. Subscribe to live remote cursors (filtered for Editors only)
+        const unsubCursors = stompService.subscribe(`/topic/room/${roomCode}/cursors`, (cursorPayload) => {
+          if (cursorPayload && cursorPayload.userId !== currentUserId) {
             setCursors((prev) => ({
               ...prev,
               [cursorPayload.userId]: cursorPayload,
@@ -82,10 +98,41 @@ export default function App() {
           }
         });
 
-        // Notify server user joined
-        stompService.send('/app/room.user-joined', { roomCode });
+        // 6. Subscribe to live room chat messages
+        const unsubChat = stompService.subscribe(`/topic/room/${roomCode}/chat`, (newMsg) => {
+          if (!newMsg?.id) return;
+
+          // Prevent processing duplicate message deliveries
+          if (seenMessageIdsRef.current.has(newMsg.id)) {
+            return;
+          }
+          seenMessageIdsRef.current.add(newMsg.id);
+
+          setMessages((prev) => [...prev, newMsg]);
+
+          // Increment unread count only once if chat is currently closed and not from self
+          if (!chatOpenRef.current && newMsg.senderId !== currentUserRef.current?.id) {
+            setUnreadChatCount((count) => count + 1);
+          }
+        });
+
+        // Notify server user joined once on connect
+        stompService.send('/app/room.user-joined', {
+          roomCode,
+          userId: currentUserId,
+          userName: currentUserName,
+        });
+
+        return () => {
+          unsubUsers?.();
+          unsubDraw?.();
+          unsubClear?.();
+          unsubDelete?.();
+          unsubCursors?.();
+          unsubChat?.();
+        };
       },
-      (err) => {
+      () => {
         setError('Connection lost to real-time server.');
       }
     );
@@ -93,7 +140,7 @@ export default function App() {
     return () => {
       stompService.disconnect();
     };
-  }, [room?.roomCode, currentUser?.id, userRole]);
+  }, [room?.roomCode, currentUser?.id]);
 
   // Handle Room Creation
   const handleCreateRoom = async (hostName) => {
@@ -114,6 +161,10 @@ export default function App() {
       setUserRole(data.currentUser.role);
       setParticipants(data.participants || []);
       setElements(data.elements || []);
+
+      const initialMsgs = data.messages || [];
+      setMessages(initialMsgs);
+      seenMessageIdsRef.current = new Set(initialMsgs.map((m) => m.id));
     } catch (err) {
       setError(err.message || 'Error creating room.');
     } finally {
@@ -147,6 +198,10 @@ export default function App() {
       setUserRole(data.currentUser.role);
       setParticipants(data.participants || []);
       setElements(data.elements || []);
+
+      const initialMsgs = data.messages || [];
+      setMessages(initialMsgs);
+      seenMessageIdsRef.current = new Set(initialMsgs.map((m) => m.id));
     } catch (err) {
       setError(err.message || 'Error joining room.');
     } finally {
@@ -227,6 +282,21 @@ export default function App() {
     });
   };
 
+  // Live chat message sender
+  const handleSendMessage = useCallback(
+    (content, type = 'CHAT') => {
+      if (!room || !currentUser || !content?.trim()) return;
+
+      stompService.send('/app/room.chat', {
+        roomCode: room.roomCode,
+        senderId: currentUser.id,
+        content: content.trim(),
+        type,
+      });
+    },
+    [room?.roomCode, currentUser?.id]
+  );
+
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden relative font-sans">
       {/* Modal for Room Entry */}
@@ -247,6 +317,9 @@ export default function App() {
             userRole={userRole}
             participantsCount={participants.length}
             onToggleParticipants={() => setSidebarOpen((prev) => !prev)}
+            unreadChatCount={unreadChatCount}
+            onToggleChat={() => setChatOpen((prev) => !prev)}
+            isChatOpen={chatOpen}
           />
 
           <main className="flex-1 relative overflow-hidden">
@@ -281,6 +354,16 @@ export default function App() {
               currentUserId={currentUser?.id}
               isHost={userRole === 'HOST'}
               onRoleChange={handleRoleChange}
+            />
+
+            <FloatingChatWidget
+              messages={messages}
+              currentUserId={currentUser?.id}
+              onSendMessage={handleSendMessage}
+              unreadCount={unreadChatCount}
+              onResetUnread={() => setUnreadChatCount(0)}
+              isOpen={chatOpen}
+              setIsOpen={setChatOpen}
             />
           </main>
         </>

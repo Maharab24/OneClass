@@ -1,6 +1,7 @@
 package com.oneclass.app.features.whiteboard.room.model;
 
 import com.oneclass.app.common.model.User;
+import com.oneclass.app.features.whiteboard.chat.model.ChatMessage;
 import com.oneclass.app.features.whiteboard.drawing.model.DrawingElement;
 
 import java.util.ArrayList;
@@ -14,6 +15,8 @@ public class Room {
     private String hostUserId;
     private Map<String, User> users = new ConcurrentHashMap<>();
     private List<DrawingElement> elements = Collections.synchronizedList(new ArrayList<>());
+    private List<ChatMessage> messages = Collections.synchronizedList(new ArrayList<>());
+    private static final int MAX_MESSAGES = 100;
     private long createdAt;
 
     public Room() {}
@@ -56,6 +59,14 @@ public class Room {
         this.elements = elements;
     }
 
+    public List<ChatMessage> getMessages() {
+        return messages;
+    }
+
+    public void setMessages(List<ChatMessage> messages) {
+        this.messages = messages;
+    }
+
     public long getCreatedAt() {
         return createdAt;
     }
@@ -78,5 +89,12 @@ public class Room {
 
     public void clearElements() {
         this.elements.clear();
+    }
+
+    public void addMessage(ChatMessage message) {
+        if (this.messages.size() >= MAX_MESSAGES) {
+            this.messages.remove(0);
+        }
+        this.messages.add(message);
     }
 }

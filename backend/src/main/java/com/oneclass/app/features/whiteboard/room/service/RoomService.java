@@ -39,7 +39,7 @@ public class RoomService {
 
         roomRepository.save(room);
 
-        return new RoomResponse(roomCode, userId, hostUser, room.getUsers().values(), room.getElements());
+        return new RoomResponse(roomCode, userId, hostUser, room.getUsers().values(), room.getElements(), room.getMessages());
     }
 
     public RoomResponse joinRoom(JoinRoomRequest request) {
@@ -60,7 +60,7 @@ public class RoomService {
         room.addUser(newUser);
         roomRepository.save(room);
 
-        return new RoomResponse(roomCode, room.getHostUserId(), newUser, room.getUsers().values(), room.getElements());
+        return new RoomResponse(roomCode, room.getHostUserId(), newUser, room.getUsers().values(), room.getElements(), room.getMessages());
     }
 
     public Room updateRole(RoleUpdateRequest request) {

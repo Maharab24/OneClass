@@ -1,8 +1,12 @@
 package com.oneclass.app.features.whiteboard.drawing.controller;
 
+import com.oneclass.app.common.model.User;
+import com.oneclass.app.features.whiteboard.chat.model.ChatMessage;
+import com.oneclass.app.features.whiteboard.chat.service.ChatService;
 import com.oneclass.app.features.whiteboard.drawing.dto.ClearCanvasDto;
 import com.oneclass.app.features.whiteboard.drawing.dto.DrawElementDto;
 import com.oneclass.app.features.whiteboard.drawing.service.WhiteboardService;
+import com.oneclass.app.features.whiteboard.room.service.RoomService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -15,10 +19,17 @@ import java.util.Map;
 public class WhiteboardWebSocketController {
 
     private final WhiteboardService whiteboardService;
+    private final RoomService roomService;
+    private final ChatService chatService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public WhiteboardWebSocketController(WhiteboardService whiteboardService, SimpMessagingTemplate messagingTemplate) {
+    public WhiteboardWebSocketController(WhiteboardService whiteboardService,
+                                         RoomService roomService,
+                                         ChatService chatService,
+                                         SimpMessagingTemplate messagingTemplate) {
         this.whiteboardService = whiteboardService;
+        this.roomService = roomService;
+        this.chatService = chatService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -71,6 +82,20 @@ public class WhiteboardWebSocketController {
                     "/topic/room/" + dto.getRoomCode().toUpperCase() + "/clear",
                     new HashMap<>(Map.of("clearedBy", dto.getUserId()))
             );
+
+            // Emit System Chat Notification for clear canvas
+            roomService.getRoomByCode(dto.getRoomCode().toUpperCase()).ifPresent(room -> {
+                User user = room.getUsers().get(dto.getUserId());
+                String userName = user != null ? user.getName() : "A participant";
+                ChatMessage systemMsg = chatService.createAndAddSystemMessage(
+                        dto.getRoomCode(),
+                        userName + " cleared the whiteboard."
+                );
+                messagingTemplate.convertAndSend(
+                        "/topic/room/" + dto.getRoomCode().toUpperCase() + "/chat",
+                        systemMsg
+                );
+            });
         }
     }
 }
