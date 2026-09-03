@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { registerUser } from '../api/authApi'
-import { useAuth } from '../context/AuthContext.jsx'
 
 export default function RegisterForm({ role }) {
   const navigate = useNavigate()
-  const { login } = useAuth()
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -23,9 +21,9 @@ export default function RegisterForm({ role }) {
     setError('')
     setLoading(true)
     try {
-      const data = await registerUser({ ...form, role })
-      login(data)
-      navigate(role === 'TEACHER' ? '/teacher/dashboard' : '/student/dashboard')
+      await registerUser({ ...form, role })
+      // Account created but unverified — go enter the emailed OTP code.
+      navigate('/verify-otp', { state: { email: form.email, role } })
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed')
     } finally {

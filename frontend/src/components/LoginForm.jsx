@@ -22,7 +22,17 @@ export default function LoginForm({ role }) {
       login(data)
       navigate(role === 'TEACHER' ? '/teacher/dashboard' : '/student/dashboard')
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed')
+      const status = err.response?.status
+      const msg = err.response?.data?.message || 'Login failed'
+
+      // 403 from the backend means the account exists but email isn't verified yet.
+      if (status === 403) {
+        navigate('/verify-otp', {
+          state: { email: form.identifier.includes('@') ? form.identifier : '', role },
+        })
+        return
+      }
+      setError(msg)
     } finally {
       setLoading(false)
     }

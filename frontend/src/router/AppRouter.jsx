@@ -7,6 +7,7 @@ import StudentLoginPage from '../pages/StudentLoginPage.jsx'
 import StudentRegisterPage from '../pages/StudentRegisterPage.jsx'
 import TeacherDashboard from '../pages/TeacherDashboard.jsx'
 import StudentDashboard from '../pages/StudentDashboard.jsx'
+import VerifyOtpPage from '../pages/VerifyOtpPage.jsx'
 import ProtectedRoute from '../components/ProtectedRoute.jsx'
 
 export default function AppRouter() {
@@ -19,6 +20,7 @@ export default function AppRouter() {
       <Route path="/teacher/register" element={<TeacherRegisterPage />} />
       <Route path="/student/login" element={<StudentLoginPage />} />
       <Route path="/student/register" element={<StudentRegisterPage />} />
+      <Route path="/verify-otp" element={<VerifyOtpPage />} />
 
       <Route
         path="/teacher/dashboard"

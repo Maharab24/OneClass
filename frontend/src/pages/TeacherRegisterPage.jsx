@@ -43,12 +43,12 @@ export default function TeacherRegisterPage() {
       return;
     }
 
-    setLoading(true);
+       setLoading(true);
     try {
       const { confirmPassword, ...registerData } = form;
-      const data = await registerUser({ ...registerData, role: 'TEACHER' });
-      login(data);
-      navigate('/teacher/dashboard');
+      await registerUser({ ...registerData, role: 'TEACHER' });
+      // Account created but unverified — go enter the emailed OTP code.
+      navigate('/verify-otp', { state: { email: form.email, role: 'TEACHER' } });
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {

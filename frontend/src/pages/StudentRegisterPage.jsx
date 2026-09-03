@@ -46,9 +46,9 @@ export default function StudentRegisterPage() {
     setLoading(true);
     try {
       const { confirmPassword, ...registerData } = form;
-      const data = await registerUser({ ...registerData, role: 'STUDENT' });
-      login(data);
-      navigate('/student/dashboard');
+      await registerUser({ ...registerData, role: 'STUDENT' });
+      // Account created but unverified — go enter the emailed OTP code.
+      navigate('/verify-otp', { state: { email: form.email, role: 'STUDENT' } });
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {

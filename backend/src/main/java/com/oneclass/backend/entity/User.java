@@ -10,11 +10,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(
-    name = "users",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = "email"),
-        @UniqueConstraint(columnNames = "phone")
-    }
+        name = "users",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "email"),
+                @UniqueConstraint(columnNames = "phone")
+        }
 )
 @Data
 @Builder
@@ -43,7 +43,16 @@ public class User {
     private Role role; // TEACHER or STUDENT
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean enabled = true;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    private String otpCode;
+
+    private LocalDateTime otpExpiry;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
