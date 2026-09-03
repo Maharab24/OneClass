@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import bannerImage from '../assets/images/banner.png';
+import logo from '../assets/images/logo.png';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -221,15 +222,28 @@ export default function LandingPage() {
             {/* Left Section - Text Content */}
             <div className="text-center lg:text-left">
               <div className="relative">
+                {/* Logo */}
+                <div className="flex justify-center lg:justify-start mb-6 animate-fade-up">
+                  <img
+                    src={logo}
+                    alt="OneClass Logo"
+                    className="h-16 w-auto object-contain"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+
                 {/* Main Heading */}
-                <div className="mb-6 animate-fade-up">
+                <div className="mb-6 animate-fade-up animation-delay-200">
                   <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white">
                     OneClass
                   </h1>
                 </div>
 
                 {/* Subtitle */}
-                <div className="mb-8 animate-fade-up animation-delay-200">
+                <div className="mb-8 animate-fade-up animation-delay-300">
                   <p className="text-lg md:text-xl text-gray-300 font-light leading-relaxed">
                     A centralized virtual learning platform for teachers and students.
                   </p>
@@ -238,28 +252,45 @@ export default function LandingPage() {
                 {/* Decorative Line */}
                 <div className="w-24 h-1 mx-auto lg:mx-0 mb-8 bg-blue-500 rounded-full animate-pulse-slow" />
 
-                {/* Features */}
+                {/* Features - Updated with #FF5722 color */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 animate-fade-up animation-delay-400">
                   <div className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 group">
-                    <div className="text-2xl mb-2 text-blue-400 font-semibold group-hover:scale-110 transition-transform">For Teachers</div>
+                    <div className="text-2xl mb-2 text-[#FF5722] font-semibold group-hover:scale-110 transition-transform">For Teachers</div>
                     <p className="text-sm text-gray-400">Create & manage courses</p>
                   </div>
                   <div className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 group">
-                    <div className="text-2xl mb-2 text-purple-400 font-semibold group-hover:scale-110 transition-transform">For Students</div>
+                    <div className="text-2xl mb-2 text-[#FF5722] font-semibold group-hover:scale-110 transition-transform">For Students</div>
                     <p className="text-sm text-gray-400">Learn & collaborate</p>
                   </div>
                   <div className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 group">
-                    <div className="text-2xl mb-2 text-pink-400 font-semibold group-hover:scale-110 transition-transform">Community</div>
+                    <div className="text-2xl mb-2 text-[#FF5722] font-semibold group-hover:scale-110 transition-transform">Community</div>
                     <p className="text-sm text-gray-400">Connect & grow together</p>
                   </div>
                 </div>
 
-                {/* CTA Button */}
+                {/* CTA Button - Enhanced with FF5722, F44336, 643633 color combination */}
                 <button
                   onClick={() => navigate('/select-role')}
-                  className="relative px-10 py-4 text-lg font-semibold text-white rounded-full bg-blue-600 hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 animate-fade-up animation-delay-600 shadow-lg hover:shadow-blue-500/30"
+                  className="relative px-10 py-4 text-lg font-semibold text-white rounded-full
+                    bg-linear-to-r from-[#FF5722] via-[#F44336] to-[#D32F2F]
+                    hover:from-[#F4511E] hover:via-[#D32F2F] hover:to-[#D32F2F]
+                    transition-all duration-300 transform hover:scale-105
+                    animate-fade-up animation-delay-600
+                    shadow-[0_0_25px_rgba(255,87,34,0.6)]
+                    hover:shadow-[0_0_50px_rgba(255,87,34,0.9)]
+                    hover:shadow-[0_0_80px_rgba(244,67,54,0.7)]
+                    before:absolute before:inset-0 before:rounded-full
+                    before:bg-linear-to-r before:from-[#FF5722] before:via-[#F44336] before:to-[#D32F2F]
+                    before:blur-2xl before:opacity-60 before:transition-opacity
+                    hover:before:opacity-90 before:-z-10
+                    border border-white/20"
                 >
-                  <span className="relative z-10">Get Started</span>
+                  <span className="relative z-10 flex items-center gap-2">
+                    Get Started
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </span>
                 </button>
 
                 {/* Additional Text */}
@@ -285,12 +316,9 @@ export default function LandingPage() {
                   />
                 </div>
                 {/* Decorative badges */}
-                <div className="absolute -top-3 -right-3 bg-blue-600 rounded-full px-4 py-2 text-xs font-semibold text-white shadow-lg animate-float-slow">
+                <div className="absolute -top-3 -right-3 bg-gradient-to-r from-[#FF5722] to-[#F44336] rounded-full px-4 py-2 text-xs font-semibold text-white shadow-lg animate-float-slow shadow-orange-500/30">
                   All in one
                 </div>
-                {/* <div className="absolute -bottom-3 -left-3 bg-purple-600 rounded-full px-4 py-2 text-xs font-semibold text-white shadow-lg animate-float-medium">
-                  🚀 Free
-                </div> */}
               </div>
             </div>
           </div>
