@@ -3,6 +3,7 @@ package com.oneclass.app.features.whiteboard.room.repository;
 import com.oneclass.app.features.whiteboard.room.model.Room;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +13,9 @@ public class RoomRepository {
     private final Map<String, Room> roomMap = new ConcurrentHashMap<>();
 
     public Room save(Room room) {
-        roomMap.put(room.getRoomCode(), room);
+        if (room != null && room.getRoomCode() != null) {
+            roomMap.put(room.getRoomCode().toUpperCase(), room);
+        }
         return room;
     }
 
@@ -24,6 +27,10 @@ public class RoomRepository {
     public boolean existsByRoomCode(String roomCode) {
         if (roomCode == null) return false;
         return roomMap.containsKey(roomCode.toUpperCase());
+    }
+
+    public Collection<Room> findAll() {
+        return roomMap.values();
     }
 
     public void deleteByRoomCode(String roomCode) {

@@ -17,14 +17,6 @@ public class RoomResponse {
 
     public RoomResponse() {}
 
-    public RoomResponse(String roomCode, String hostUserId, User currentUser, Collection<User> participants, List<DrawingElement> elements) {
-        this.roomCode = roomCode;
-        this.hostUserId = hostUserId;
-        this.currentUser = currentUser;
-        this.participants = participants;
-        this.elements = elements;
-    }
-
     public RoomResponse(String roomCode, String hostUserId, User currentUser, Collection<User> participants, List<DrawingElement> elements, List<ChatMessage> messages) {
         this.roomCode = roomCode;
         this.hostUserId = hostUserId;

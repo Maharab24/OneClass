@@ -12,7 +12,6 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @Controller
@@ -64,7 +63,7 @@ public class WhiteboardWebSocketController {
         if (success) {
             messagingTemplate.convertAndSend(
                     "/topic/room/" + roomCode.toUpperCase() + "/delete-element",
-                    new HashMap<>(Map.of("elementId", elementId, "deletedBy", userId))
+                    Map.of("elementId", elementId, "deletedBy", userId)
             );
         }
     }
@@ -80,7 +79,7 @@ public class WhiteboardWebSocketController {
         if (success) {
             messagingTemplate.convertAndSend(
                     "/topic/room/" + dto.getRoomCode().toUpperCase() + "/clear",
-                    new HashMap<>(Map.of("clearedBy", dto.getUserId()))
+                    Map.of("clearedBy", dto.getUserId())
             );
 
             // Emit System Chat Notification for clear canvas

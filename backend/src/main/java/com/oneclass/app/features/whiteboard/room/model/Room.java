@@ -18,6 +18,7 @@ public class Room {
     private List<ChatMessage> messages = Collections.synchronizedList(new ArrayList<>());
     private static final int MAX_MESSAGES = 100;
     private long createdAt;
+    private Long emptySince;
 
     public Room() {}
 
@@ -47,24 +48,12 @@ public class Room {
         return users;
     }
 
-    public void setUsers(Map<String, User> users) {
-        this.users = users;
-    }
-
     public List<DrawingElement> getElements() {
         return elements;
     }
 
-    public void setElements(List<DrawingElement> elements) {
-        this.elements = elements;
-    }
-
     public List<ChatMessage> getMessages() {
         return messages;
-    }
-
-    public void setMessages(List<ChatMessage> messages) {
-        this.messages = messages;
     }
 
     public long getCreatedAt() {
@@ -75,12 +64,24 @@ public class Room {
         this.createdAt = createdAt;
     }
 
+    public Long getEmptySince() {
+        return emptySince;
+    }
+
+    public void setEmptySince(Long emptySince) {
+        this.emptySince = emptySince;
+    }
+
     public void addUser(User user) {
         this.users.put(user.getId(), user);
+        this.emptySince = null;
     }
 
     public void removeUser(String userId) {
         this.users.remove(userId);
+        if (this.users.isEmpty()) {
+            this.emptySince = System.currentTimeMillis();
+        }
     }
 
     public void addElement(DrawingElement element) {
@@ -92,9 +93,11 @@ public class Room {
     }
 
     public void addMessage(ChatMessage message) {
-        if (this.messages.size() >= MAX_MESSAGES) {
-            this.messages.remove(0);
+        synchronized (this.messages) {
+            if (this.messages.size() >= MAX_MESSAGES) {
+                this.messages.remove(0);
+            }
+            this.messages.add(message);
         }
-        this.messages.add(message);
     }
 }

@@ -7,16 +7,20 @@ import com.oneclass.app.features.whiteboard.room.dto.RoleUpdateRequest;
 import com.oneclass.app.features.whiteboard.room.model.Role;
 import com.oneclass.app.features.whiteboard.room.model.Room;
 import com.oneclass.app.features.whiteboard.room.service.RoomService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.util.ArrayList;
 import java.util.Map;
 
 @Controller
 public class RoomWebSocketController {
+
+    private static final Logger log = LoggerFactory.getLogger(RoomWebSocketController.class);
 
     private final RoomService roomService;
     private final ChatService chatService;
@@ -29,15 +33,20 @@ public class RoomWebSocketController {
     }
 
     @MessageMapping("/room.user-joined")
-    public void handleUserJoined(@Payload Map<String, String> payload) {
+    public void handleUserJoined(@Payload Map<String, String> payload, SimpMessageHeaderAccessor headerAccessor) {
         String roomCode = payload.get("roomCode");
+        String userId = payload.get("userId");
         String userName = payload.get("userName");
+
+        if (headerAccessor != null && headerAccessor.getSessionId() != null && roomCode != null && userId != null) {
+            roomService.registerSession(headerAccessor.getSessionId(), roomCode, userId);
+        }
 
         if (roomCode != null) {
             roomService.getRoomByCode(roomCode.toUpperCase()).ifPresent(room -> {
                 messagingTemplate.convertAndSend(
                         "/topic/room/" + roomCode.toUpperCase() + "/users",
-                        new ArrayList<>(room.getUsers().values())
+                        room.getUsers().values()
                 );
 
                 if (userName != null && !userName.trim().isEmpty()) {
@@ -60,7 +69,7 @@ public class RoomWebSocketController {
             Room room = roomService.updateRole(request);
             messagingTemplate.convertAndSend(
                     "/topic/room/" + request.getRoomCode().toUpperCase() + "/users",
-                    new ArrayList<>(room.getUsers().values())
+                    room.getUsers().values()
             );
 
             User targetUser = room.getUsers().get(request.getTargetUserId());
@@ -74,7 +83,7 @@ public class RoomWebSocketController {
                 );
             }
         } catch (Exception e) {
-            // Log error
+            log.warn("Failed to update role for room {}: {}", request.getRoomCode(), e.getMessage());
         }
     }
 }

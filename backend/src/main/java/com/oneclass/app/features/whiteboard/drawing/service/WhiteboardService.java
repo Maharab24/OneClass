@@ -1,6 +1,5 @@
 package com.oneclass.app.features.whiteboard.drawing.service;
 
-import com.oneclass.app.common.model.User;
 import com.oneclass.app.features.whiteboard.drawing.model.DrawingElement;
 import com.oneclass.app.features.whiteboard.room.model.Room;
 import com.oneclass.app.features.whiteboard.room.service.RoomService;
@@ -18,16 +17,12 @@ public class WhiteboardService {
     }
 
     public boolean addElement(String roomCode, String userId, DrawingElement element) {
-        Optional<Room> optionalRoom = roomService.getRoomByCode(roomCode);
-        if (optionalRoom.isEmpty()) return false;
-
-        Room room = optionalRoom.get();
-        User user = room.getUsers().get(userId);
-
-        if (user == null || !user.getRole().canEdit()) {
+        Optional<Room> optionalRoom = roomService.getAuthorizedEditorRoom(roomCode, userId);
+        if (optionalRoom.isEmpty() || element == null) {
             return false;
         }
 
+        Room room = optionalRoom.get();
         element.setUserId(userId);
         element.setTimestamp(System.currentTimeMillis());
         room.addElement(element);
@@ -35,31 +30,19 @@ public class WhiteboardService {
     }
 
     public boolean deleteElement(String roomCode, String userId, String elementId) {
-        Optional<Room> optionalRoom = roomService.getRoomByCode(roomCode);
-        if (optionalRoom.isEmpty()) return false;
-
-        Room room = optionalRoom.get();
-        User user = room.getUsers().get(userId);
-
-        if (user == null || !user.getRole().canEdit()) {
-            return false;
-        }
-
-        return room.getElements().removeIf(e -> e.getId().equals(elementId));
+        if (elementId == null) return false;
+        return roomService.getAuthorizedEditorRoom(roomCode, userId)
+                .map(room -> room.getElements().removeIf(e -> elementId.equals(e.getId())))
+                .orElse(false);
     }
 
     public boolean clearCanvas(String roomCode, String userId) {
-        Optional<Room> optionalRoom = roomService.getRoomByCode(roomCode);
-        if (optionalRoom.isEmpty()) return false;
-
-        Room room = optionalRoom.get();
-        User user = room.getUsers().get(userId);
-
-        if (user == null || !user.getRole().canEdit()) {
+        Optional<Room> optionalRoom = roomService.getAuthorizedEditorRoom(roomCode, userId);
+        if (optionalRoom.isEmpty()) {
             return false;
         }
 
-        room.clearElements();
+        optionalRoom.get().clearElements();
         return true;
     }
 }

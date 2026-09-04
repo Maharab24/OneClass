@@ -10,9 +10,13 @@ import com.oneclass.app.features.whiteboard.room.dto.RoleUpdateRequest;
 import com.oneclass.app.features.whiteboard.room.dto.RoomResponse;
 import org.springframework.stereotype.Service;
 
+import org.springframework.scheduling.annotation.Scheduled;
+
 import java.security.SecureRandom;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RoomService {
@@ -23,6 +27,10 @@ public class RoomService {
             "#ef4444", "#3b82f6", "#10b981", "#f59e0b",
             "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1"
     };
+    public static final long INACTIVITY_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+
+    public record UserSession(String roomCode, String userId) {}
+    private final Map<String, UserSession> sessionMap = new ConcurrentHashMap<>();
 
     public RoomService(RoomRepository roomRepository) {
         this.roomRepository = roomRepository;
@@ -93,15 +101,60 @@ public class RoomService {
         return roomRepository.findByRoomCode(roomCode);
     }
 
-    public void removeUserFromRoom(String roomCode, String userId) {
-        roomRepository.findByRoomCode(roomCode).ifPresent(room -> {
+    public boolean canUserEdit(String roomCode, String userId) {
+        return getAuthorizedEditorRoom(roomCode, userId).isPresent();
+    }
+
+    public Optional<Room> getAuthorizedEditorRoom(String roomCode, String userId) {
+        if (roomCode == null || userId == null) return Optional.empty();
+        return roomRepository.findByRoomCode(roomCode)
+                .filter(room -> {
+                    User user = room.getUsers().get(userId);
+                    return user != null && user.getRole().canEdit();
+                });
+    }
+
+    public void registerSession(String sessionId, String roomCode, String userId) {
+        if (sessionId != null && roomCode != null && userId != null) {
+            sessionMap.put(sessionId, new UserSession(roomCode.toUpperCase(), userId));
+        }
+    }
+
+    public Optional<UserSession> unregisterSession(String sessionId) {
+        if (sessionId == null) return Optional.empty();
+        return Optional.ofNullable(sessionMap.remove(sessionId));
+    }
+
+    public Optional<UserSession> getSession(String sessionId) {
+        if (sessionId == null) return Optional.empty();
+        return Optional.ofNullable(sessionMap.get(sessionId));
+    }
+
+    public Optional<User> removeUserFromRoom(String roomCode, String userId) {
+        if (roomCode == null || userId == null) return Optional.empty();
+        Optional<Room> optionalRoom = roomRepository.findByRoomCode(roomCode);
+        if (optionalRoom.isEmpty()) return Optional.empty();
+
+        Room room = optionalRoom.get();
+        User removedUser = room.getUsers().get(userId);
+        if (removedUser != null) {
             room.removeUser(userId);
+            roomRepository.save(room);
+        }
+        return Optional.ofNullable(removedUser);
+    }
+
+    @Scheduled(fixedDelay = 10000)
+    public void cleanupInactiveRooms() {
+        long now = System.currentTimeMillis();
+        for (Room room : roomRepository.findAll()) {
             if (room.getUsers().isEmpty()) {
-                roomRepository.deleteByRoomCode(roomCode);
-            } else {
-                roomRepository.save(room);
+                Long emptySince = room.getEmptySince();
+                if (emptySince != null && (now - emptySince >= INACTIVITY_THRESHOLD_MS)) {
+                    roomRepository.deleteByRoomCode(room.getRoomCode());
+                }
             }
-        });
+        }
     }
 
     private String generateUniqueRoomCode() {
