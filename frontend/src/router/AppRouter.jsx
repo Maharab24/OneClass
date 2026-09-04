@@ -1,14 +1,15 @@
 import { Routes, Route } from 'react-router-dom'
-import LandingPage from '../pages/LandingPage.jsx'
-import RoleSelectPage from '../pages/RoleSelectPage.jsx'
-import TeacherLoginPage from '../pages/TeacherLoginPage.jsx'
-import TeacherRegisterPage from '../pages/TeacherRegisterPage.jsx'
-import StudentLoginPage from '../pages/StudentLoginPage.jsx'
-import StudentRegisterPage from '../pages/StudentRegisterPage.jsx'
-import TeacherDashboard from '../pages/TeacherDashboard.jsx'
-import StudentDashboard from '../pages/StudentDashboard.jsx'
-import VerifyOtpPage from '../pages/VerifyOtpPage.jsx'
-import ProtectedRoute from '../components/ProtectedRoute.jsx'
+import LandingPage from '../features/landing/pages/LandingPage.jsx'
+import RoleSelectPage from '../features/auth/pages/RoleSelectPage.jsx'
+import TeacherLoginPage from '../features/auth/pages/TeacherLoginPage.jsx'
+import TeacherRegisterPage from '../features/auth/pages/TeacherRegisterPage.jsx'
+import StudentLoginPage from '../features/auth/pages/StudentLoginPage.jsx'
+import StudentRegisterPage from '../features/auth/pages/StudentRegisterPage.jsx'
+import TeacherDashboard from '../features/dashboard/pages/TeacherDashboard.jsx'
+import StudentDashboard from '../features/dashboard/pages/StudentDashboard.jsx'
+import VerifyOtpPage from '../features/auth/pages/VerifyOtpPage.jsx'
+import ProtectedRoute from '../common/components/ProtectedRoute.jsx'
+
 
 export default function AppRouter() {
   return (
