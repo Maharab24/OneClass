@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # OneClass - Collaborative Virtual Classroom & Whiteboard Platform
 
 **OneClass** is a modern educational platform that combines interactive real-time collaborative whiteboards with virtual classroom capabilities. Built using **React**, **KonvaJS**, **Tailwind CSS**, and a **Java 21 Spring Boot** WebSockets backend (`com.oneclass.app`) following **Clean Feature-Based Architecture**.
@@ -129,3 +130,4 @@ cd backend
 cd frontend
 npm run build
 ```
+

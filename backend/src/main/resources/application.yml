@@ -1,0 +1,40 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: oneclass-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/oneclass_db}
+    username: ${DB_USERNAME:oneclass_user}
+    password: ${DB_PASSWORD:oneclass_pass}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-app-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-16-char-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:ReplaceThisWithALongRandomBase64SecretKeyForJwtSigning123456}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}   # 24 hours
+  otp:
+    expiration-minutes: ${OTP_EXPIRATION_MINUTES:10}

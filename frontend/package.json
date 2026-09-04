@@ -1,7 +1,7 @@
 {
   "name": "oneclass-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,12 +12,14 @@
   "dependencies": {
     "@stomp/stompjs": "^7.3.0",
     "@tailwindcss/vite": "^4.3.3",
+    "axios": "^1.7.2",
     "canvas-confetti": "^1.9.4",
     "konva": "^10.3.0",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-konva": "^19.2.5",
+    "react-router-dom": "^6.25.1",
     "sockjs-client": "^1.6.1",
     "tailwindcss": "^4.3.3"
   },
@@ -29,3 +31,4 @@
     "vite": "^8.2.0"
   }
 }
+
