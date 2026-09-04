@@ -268,30 +268,45 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* CTA Button - Enhanced with FF5722, F44336, 643633 color combination */}
-                <button
-                  onClick={() => navigate('/select-role')}
-                  className="relative px-10 py-4 text-lg font-semibold text-white rounded-full
-                    bg-linear-to-r from-[#FF5722] via-[#F44336] to-[#D32F2F]
-                    hover:from-[#F4511E] hover:via-[#D32F2F] hover:to-[#D32F2F]
-                    transition-all duration-300 transform hover:scale-105
-                    animate-fade-up animation-delay-600
-                    shadow-[0_0_25px_rgba(255,87,34,0.6)]
-                    hover:shadow-[0_0_50px_rgba(255,87,34,0.9)]
-                    hover:shadow-[0_0_80px_rgba(244,67,54,0.7)]
-                    before:absolute before:inset-0 before:rounded-full
-                    before:bg-linear-to-r before:from-[#FF5722] before:via-[#F44336] before:to-[#D32F2F]
-                    before:blur-2xl before:opacity-60 before:transition-opacity
-                    hover:before:opacity-90 before:-z-10
-                    border border-white/20"
-                >
-                  <span className="relative z-10 flex items-center gap-2">
-                    Get Started
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                {/* CTA Buttons - Auth and Whiteboard Quick Launch */}
+                <div className="flex flex-wrap items-center gap-4 justify-center lg:justify-start">
+                  <button
+                    onClick={() => navigate('/select-role')}
+                    className="relative px-10 py-4 text-lg font-semibold text-white rounded-full
+                      bg-linear-to-r from-[#FF5722] via-[#F44336] to-[#D32F2F]
+                      hover:from-[#F4511E] hover:via-[#D32F2F] hover:to-[#D32F2F]
+                      transition-all duration-300 transform hover:scale-105
+                      animate-fade-up animation-delay-600
+                      shadow-[0_0_25px_rgba(255,87,34,0.6)]
+                      hover:shadow-[0_0_50px_rgba(255,87,34,0.9)]
+                      hover:shadow-[0_0_80px_rgba(244,67,54,0.7)]
+                      before:absolute before:inset-0 before:rounded-full
+                      before:bg-linear-to-r before:from-[#FF5722] before:via-[#F44336] before:to-[#D32F2F]
+                      before:blur-2xl before:opacity-60 before:transition-opacity
+                      hover:before:opacity-90 before:-z-10
+                      border border-white/20"
+                  >
+                    <span className="relative z-10 flex items-center gap-2">
+                      Get Started
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/whiteboard')}
+                    className="px-8 py-4 text-lg font-semibold text-white rounded-full
+                      bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20
+                      transition-all duration-300 transform hover:scale-105
+                      animate-fade-up animation-delay-600 flex items-center gap-2"
+                  >
+                    <span>Launch Whiteboard</span>
+                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                  </span>
-                </button>
+                  </button>
+                </div>
 
                 {/* Additional Text */}
                 <p className="mt-6 text-xs text-gray-500 animate-fade-up animation-delay-800">

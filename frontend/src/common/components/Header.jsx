@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Copy, Check, Users, Eye, Edit3, Sparkles } from 'lucide-react';
+import { Copy, Check, Users, Eye, Edit3, Sparkles, LogOut } from 'lucide-react';
 
-export default function Header({ roomCode, userRole, participantsCount, onToggleParticipants }) {
+export default function Header({ roomCode, userRole, participantsCount, onToggleParticipants, onExit }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = () => {
@@ -85,6 +85,18 @@ export default function Header({ roomCode, userRole, participantsCount, onToggle
             {participantsCount || 1}
           </span>
         </button>
+
+        {/* Exit / Return Button */}
+        {onExit && (
+          <button
+            onClick={onExit}
+            className="light-button px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900"
+            title="Return to Dashboard or Home"
+          >
+            <LogOut className="w-3.5 h-3.5 text-slate-500" />
+            <span>Leave</span>
+          </button>
+        )}
       </div>
     </header>
   );

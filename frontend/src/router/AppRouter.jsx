@@ -1,15 +1,16 @@
-import { Routes, Route } from 'react-router-dom'
-import LandingPage from '../features/landing/pages/LandingPage.jsx'
-import RoleSelectPage from '../features/auth/pages/RoleSelectPage.jsx'
-import TeacherLoginPage from '../features/auth/pages/TeacherLoginPage.jsx'
-import TeacherRegisterPage from '../features/auth/pages/TeacherRegisterPage.jsx'
-import StudentLoginPage from '../features/auth/pages/StudentLoginPage.jsx'
-import StudentRegisterPage from '../features/auth/pages/StudentRegisterPage.jsx'
-import TeacherDashboard from '../features/dashboard/pages/TeacherDashboard.jsx'
-import StudentDashboard from '../features/dashboard/pages/StudentDashboard.jsx'
-import VerifyOtpPage from '../features/auth/pages/VerifyOtpPage.jsx'
-import ProtectedRoute from '../common/components/ProtectedRoute.jsx'
-
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from '../features/landing/pages/LandingPage';
+import RoleSelectPage from '../features/auth/pages/RoleSelectPage';
+import TeacherLoginPage from '../features/auth/pages/TeacherLoginPage';
+import TeacherRegisterPage from '../features/auth/pages/TeacherRegisterPage';
+import StudentLoginPage from '../features/auth/pages/StudentLoginPage';
+import StudentRegisterPage from '../features/auth/pages/StudentRegisterPage';
+import VerifyOtpPage from '../features/auth/pages/VerifyOtpPage';
+import TeacherDashboard from '../features/dashboard/pages/TeacherDashboard';
+import StudentDashboard from '../features/dashboard/pages/StudentDashboard';
+import WhiteboardPage from '../features/whiteboard/pages/WhiteboardPage';
+import ProtectedRoute from '../common/components/ProtectedRoute';
 
 export default function AppRouter() {
   return (
@@ -17,12 +18,14 @@ export default function AppRouter() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/select-role" element={<RoleSelectPage />} />
 
+      {/* Auth Routes */}
       <Route path="/teacher/login" element={<TeacherLoginPage />} />
       <Route path="/teacher/register" element={<TeacherRegisterPage />} />
       <Route path="/student/login" element={<StudentLoginPage />} />
       <Route path="/student/register" element={<StudentRegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOtpPage />} />
 
+      {/* Role-Protected Dashboards */}
       <Route
         path="/teacher/dashboard"
         element={
@@ -39,6 +42,12 @@ export default function AppRouter() {
           </ProtectedRoute>
         }
       />
+
+      {/* Collaborative Whiteboard Classroom */}
+      <Route path="/whiteboard" element={<WhiteboardPage />} />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-  )
+  );
 }
