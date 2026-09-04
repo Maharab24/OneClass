@@ -44,7 +44,14 @@ export default function AppRouter() {
       />
 
       {/* Collaborative Whiteboard Classroom */}
-      <Route path="/whiteboard" element={<WhiteboardPage />} />
+      <Route
+        path="/whiteboard"
+        element={
+          <ProtectedRoute>
+            <WhiteboardPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

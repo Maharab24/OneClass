@@ -1,24 +1,67 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../common/context/AuthContext';
-import { Presentation, LogOut, ArrowRight, Sparkles, BookOpen } from 'lucide-react';
+import axiosInstance from '../../../common/api/axiosInstance';
+import { Presentation, LogOut, ArrowRight, Sparkles, BookOpen, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function StudentDashboard() {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState(null);
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  const handleJoinDirect = (e) => {
+  const handleJoinDirect = async (e) => {
     e.preventDefault();
-    if (roomCode.trim()) {
-      navigate('/whiteboard', { state: { autoJoinCode: roomCode.trim().toUpperCase() } });
-    } else {
-      navigate('/whiteboard');
+    if (!roomCode.trim()) return;
+
+    setIsJoining(true);
+    setJoinError(null);
+    try {
+      const res = await axiosInstance.post('/rooms/join', {
+        roomCode: roomCode.trim().toUpperCase(),
+        userName: auth?.fullName,
+        requestedRole: 'CAN_WATCH',
+      });
+      navigate('/whiteboard', {
+        state: {
+          room: res.data,
+          currentUser: res.data.currentUser,
+        },
+      });
+    } catch (err) {
+      const msg = typeof err.response?.data === 'string' ? err.response.data : err.response?.data?.message || 'Room not found or unable to join.';
+      setJoinError(msg);
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleCreateStudyBoard = async () => {
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const res = await axiosInstance.post('/rooms/create', {
+        hostName: auth?.fullName,
+      });
+      navigate('/whiteboard', {
+        state: {
+          room: res.data,
+          currentUser: res.data.currentUser,
+        },
+      });
+    } catch (err) {
+      setCreateError(err.response?.data?.message || err.message || 'Failed to create study board.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -79,28 +122,55 @@ export default function StudentDashboard() {
               />
               <button
                 type="submit"
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-semibold text-sm shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2"
+                disabled={isJoining || !roomCode.trim()}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-semibold text-sm shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>Join Board</span>
-                <ArrowRight className="w-4 h-4" />
+                {isJoining ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Joining...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Join Board</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
+
+            {joinError && (
+              <div className="p-3 bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs rounded-xl flex items-center gap-2 max-w-md">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{joinError}</span>
+              </div>
+            )}
+
+            {createError && (
+              <div className="p-3 bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs rounded-xl flex items-center gap-2 max-w-md">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{createError}</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Feature Highlights */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div
-            onClick={() => navigate('/whiteboard')}
+            onClick={handleCreateStudyBoard}
             className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all cursor-pointer space-y-3"
           >
             <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
               <Presentation className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-bold text-white">Browse Whiteboard Hub</h3>
+            <h3 className="text-lg font-bold text-white">Create Collaborative Study Board</h3>
             <p className="text-slate-400 text-sm leading-relaxed">
-              Launch the whiteboard workspace to create your own study board or join an existing study session.
+              Launch your own collaborative whiteboard session to study, take notes, and share the room code with peers.
             </p>
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-purple-400">
+              <span>{isCreating ? 'Creating Board...' : 'Launch Board'}</span> &rarr;
+            </div>
           </div>
 
           <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-3">

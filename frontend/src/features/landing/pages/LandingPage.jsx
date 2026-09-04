@@ -268,7 +268,7 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* CTA Buttons - Auth and Whiteboard Quick Launch */}
+                {/* CTA Button - Get Started */}
                 <div className="flex flex-wrap items-center gap-4 justify-center lg:justify-start">
                   <button
                     onClick={() => navigate('/select-role')}
@@ -292,19 +292,6 @@ export default function LandingPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
                     </span>
-                  </button>
-
-                  <button
-                    onClick={() => navigate('/whiteboard')}
-                    className="px-8 py-4 text-lg font-semibold text-white rounded-full
-                      bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20
-                      transition-all duration-300 transform hover:scale-105
-                      animate-fade-up animation-delay-600 flex items-center gap-2"
-                  >
-                    <span>Launch Whiteboard</span>
-                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
                   </button>
                 </div>
 

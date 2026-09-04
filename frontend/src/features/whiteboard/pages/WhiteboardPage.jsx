@@ -1,27 +1,29 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../common/context/AuthContext';
+import axiosInstance from '../../../common/api/axiosInstance';
 import Header from '../../../common/components/Header';
-import RoomJoinModal from '../room/components/RoomJoinModal';
 import UserListSidebar from '../room/components/UserListSidebar';
 import Toolbar from '../drawing/components/Toolbar';
 import LiveCursors from '../presence/components/LiveCursors';
 import WhiteboardCanvas from '../drawing/components/WhiteboardCanvas';
 import FloatingChatWidget from '../chat/components/FloatingChatWidget';
 import { stompService } from '../drawing/services/stompClient';
+import { AlertCircle } from 'lucide-react';
 
 export default function WhiteboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { auth } = useAuth();
 
-  const [room, setRoom] = useState(null); // { roomCode, hostUserId, currentUser, participants, elements, messages }
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState('CAN_WATCH');
-  const [participants, setParticipants] = useState([]);
-  const [elements, setElements] = useState([]);
+  // Initialize directly from navigation state if available (instant launch from dashboard)
+  const [room, setRoom] = useState(() => location.state?.room || null);
+  const [currentUser, setCurrentUser] = useState(() => location.state?.currentUser || null);
+  const [userRole, setUserRole] = useState(() => location.state?.currentUser?.role || 'CAN_WATCH');
+  const [participants, setParticipants] = useState(() => location.state?.room?.participants || []);
+  const [elements, setElements] = useState(() => location.state?.room?.elements || []);
   const [cursors, setCursors] = useState({});
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => location.state?.room?.messages || []);
 
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,7 +42,9 @@ export default function WhiteboardPage() {
   // Keep references to mutable UI states for STOMP callbacks without stale closures
   const chatOpenRef = useRef(chatOpen);
   const currentUserRef = useRef(currentUser);
-  const seenMessageIdsRef = useRef(new Set());
+  const seenMessageIdsRef = useRef(
+    new Set((location.state?.room?.messages || []).map((m) => m.id))
+  );
 
   useEffect(() => {
     chatOpenRef.current = chatOpen;
@@ -50,7 +54,7 @@ export default function WhiteboardPage() {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
-  const handleExit = () => {
+  const handleExit = useCallback(() => {
     if (auth?.role === 'TEACHER') {
       navigate('/teacher/dashboard');
     } else if (auth?.role === 'STUDENT') {
@@ -58,7 +62,7 @@ export default function WhiteboardPage() {
     } else {
       navigate('/');
     }
-  };
+  }, [auth?.role, navigate]);
 
   // Handle STOMP WebSocket subscriptions once room is joined
   useEffect(() => {
@@ -156,74 +160,60 @@ export default function WhiteboardPage() {
     return () => {
       stompService.disconnect();
     };
-  }, [room?.roomCode, currentUser?.id]);
+  }, [room?.roomCode, currentUser?.id, currentUser?.name]);
 
-  // Handle Room Creation
-  const handleCreateRoom = async (hostName) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/rooms/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostName }),
-      });
-
-      if (!res.ok) throw new Error('Failed to create room.');
-
-      const data = await res.json();
-      setRoom(data);
-      setCurrentUser(data.currentUser);
-      setUserRole(data.currentUser.role);
-      setParticipants(data.participants || []);
-      setElements(data.elements || []);
-
-      const initialMsgs = data.messages || [];
-      setMessages(initialMsgs);
-      seenMessageIdsRef.current = new Set(initialMsgs.map((m) => m.id));
-    } catch (err) {
-      setError(err.message || 'Error creating room.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle Room Joining
-  const handleJoinRoom = async (roomCode, userName) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/rooms/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomCode,
-          userName,
+  // Join room using authenticated account name synced with database
+  const handleJoinRoom = useCallback(
+    async (codeToJoin) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await axiosInstance.post('/rooms/join', {
+          roomCode: codeToJoin.trim().toUpperCase(),
+          userName: auth?.fullName,
           requestedRole: 'CAN_WATCH',
-        }),
-      });
+        });
 
-      if (!res.ok) {
-        const errMsg = await res.text();
-        throw new Error(errMsg || 'Failed to join room.');
+        const data = res.data;
+        setRoom(data);
+        setCurrentUser(data.currentUser);
+        setUserRole(data.currentUser.role);
+        setParticipants(data.participants || []);
+        setElements(data.elements || []);
+
+        const initialMsgs = data.messages || [];
+        setMessages(initialMsgs);
+        seenMessageIdsRef.current = new Set(initialMsgs.map((m) => m.id));
+      } catch (err) {
+        const errMsg =
+          typeof err.response?.data === 'string'
+            ? err.response.data
+            : err.response?.data?.message || 'Failed to join room.';
+        setError(errMsg);
+      } finally {
+        setLoading(false);
       }
+    },
+    [auth?.fullName]
+  );
 
-      const data = await res.json();
-      setRoom(data);
-      setCurrentUser(data.currentUser);
-      setUserRole(data.currentUser.role);
-      setParticipants(data.participants || []);
-      setElements(data.elements || []);
+  // Auto-join or redirect to dashboard if room is not yet initialized
+  useEffect(() => {
+    if (room) return;
 
-      const initialMsgs = data.messages || [];
-      setMessages(initialMsgs);
-      seenMessageIdsRef.current = new Set(initialMsgs.map((m) => m.id));
-    } catch (err) {
-      setError(err.message || 'Error joining room.');
-    } finally {
-      setLoading(false);
+    const queryParams = new URLSearchParams(location.search);
+    const code =
+      location.state?.autoJoinCode ||
+      location.state?.roomCode ||
+      queryParams.get('room');
+
+    if (code) {
+      handleJoinRoom(code);
+    } else {
+      // Direct access without room or code -> user is not in a room, redirect to dashboard
+      handleExit();
     }
-  };
+  }, [room, location.state, location.search, handleJoinRoom, handleExit]);
 
   // Dispatch new drawing element locally and to WebSocket STOMP
   const handleAddElement = useCallback(
@@ -238,7 +228,7 @@ export default function WhiteboardPage() {
         element: newElement,
       });
     },
-    [canEdit, room?.roomCode, currentUser?.id]
+    [canEdit, room, currentUser]
   );
 
   // Dispatch object element deletion (Object Eraser)
@@ -254,7 +244,7 @@ export default function WhiteboardPage() {
         elementId,
       });
     },
-    [canEdit, room?.roomCode, currentUser?.id]
+    [canEdit, room, currentUser]
   );
 
   // Dispatch live cursor move (throttled)
@@ -271,7 +261,7 @@ export default function WhiteboardPage() {
         y,
       });
     },
-    [canEdit, room?.roomCode, currentUser]
+    [canEdit, room, currentUser]
   );
 
   // Dispatch clear canvas event
@@ -284,7 +274,7 @@ export default function WhiteboardPage() {
       roomCode: room.roomCode,
       userId: currentUser.id,
     });
-  }, [canEdit, room?.roomCode, currentUser?.id]);
+  }, [canEdit, room, currentUser]);
 
   // Host role change handler
   const handleRoleChange = (targetUserId, newRole) => {
@@ -310,85 +300,101 @@ export default function WhiteboardPage() {
         type,
       });
     },
-    [room?.roomCode, currentUser?.id]
+    [room, currentUser]
   );
+
+  // Render Loading Screen while auto-joining
+  if (!room && loading) {
+    return (
+      <div className="w-screen h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6 space-y-4 font-sans">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-slate-300 font-medium tracking-wide">Connecting to Whiteboard Room...</p>
+      </div>
+    );
+  }
+
+  // Render Error Screen if unable to join
+  if (!room && error) {
+    return (
+      <div className="w-screen h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6 font-sans">
+        <div className="max-w-md w-full bg-slate-800 border border-rose-500/30 rounded-2xl p-6 text-center space-y-4 shadow-2xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Whiteboard Session Error</h2>
+          <p className="text-sm text-slate-300 leading-relaxed">{error}</p>
+          <button
+            onClick={handleExit}
+            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all shadow-lg shadow-indigo-500/25"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!room) {
+    return null;
+  }
 
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-100 text-slate-900 overflow-hidden relative font-sans">
-      {/* Modal for Room Entry */}
-      {!room && (
-        <RoomJoinModal
-          onCreateRoom={handleCreateRoom}
-          onJoinRoom={handleJoinRoom}
-          error={error}
-          loading={loading}
-          initialName={auth?.fullName || ''}
-          initialRoomCode={location.state?.autoJoinCode || ''}
-          initialTab={location.state?.autoJoinCode ? 'join' : (auth?.role === 'STUDENT' ? 'join' : 'create')}
-          onBack={handleExit}
+      <Header
+        roomCode={room.roomCode}
+        userRole={userRole}
+        participantsCount={participants.length}
+        onToggleParticipants={() => setSidebarOpen((prev) => !prev)}
+        unreadChatCount={unreadChatCount}
+        onToggleChat={() => setChatOpen((prev) => !prev)}
+        isChatOpen={chatOpen}
+        onExit={handleExit}
+      />
+
+      <main className="flex-1 relative overflow-hidden">
+        <Toolbar
+          activeTool={activeTool}
+          setActiveTool={setActiveTool}
+          color={color}
+          setColor={setColor}
+          strokeWidth={strokeWidth}
+          setStrokeWidth={setStrokeWidth}
+          onClearCanvas={handleClearCanvas}
+          canEdit={canEdit}
         />
-      )}
 
-      {/* Main App Layout */}
-      {room && (
-        <>
-          <Header
-            roomCode={room.roomCode}
-            userRole={userRole}
-            participantsCount={participants.length}
-            onToggleParticipants={() => setSidebarOpen((prev) => !prev)}
-            unreadChatCount={unreadChatCount}
-            onToggleChat={() => setChatOpen((prev) => !prev)}
-            isChatOpen={chatOpen}
-            onExit={handleExit}
-          />
+        <LiveCursors cursors={cursors} currentUserId={currentUser?.id} />
 
-          <main className="flex-1 relative overflow-hidden">
-            <Toolbar
-              activeTool={activeTool}
-              setActiveTool={setActiveTool}
-              color={color}
-              setColor={setColor}
-              strokeWidth={strokeWidth}
-              setStrokeWidth={setStrokeWidth}
-              onClearCanvas={handleClearCanvas}
-              canEdit={canEdit}
-            />
+        <WhiteboardCanvas
+          elements={elements}
+          onAddElement={handleAddElement}
+          onDeleteElement={handleDeleteElement}
+          onCursorMove={handleCursorMove}
+          activeTool={activeTool}
+          color={color}
+          strokeWidth={strokeWidth}
+          canEdit={canEdit}
+        />
 
-            <LiveCursors cursors={cursors} currentUserId={currentUser?.id} />
+        <UserListSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          participants={participants}
+          currentUserId={currentUser?.id}
+          isHost={userRole === 'HOST'}
+          onRoleChange={handleRoleChange}
+        />
 
-            <WhiteboardCanvas
-              elements={elements}
-              onAddElement={handleAddElement}
-              onDeleteElement={handleDeleteElement}
-              onCursorMove={handleCursorMove}
-              activeTool={activeTool}
-              color={color}
-              strokeWidth={strokeWidth}
-              canEdit={canEdit}
-            />
-
-            <UserListSidebar
-              isOpen={sidebarOpen}
-              onClose={() => setSidebarOpen(false)}
-              participants={participants}
-              currentUserId={currentUser?.id}
-              isHost={userRole === 'HOST'}
-              onRoleChange={handleRoleChange}
-            />
-
-            <FloatingChatWidget
-              messages={messages}
-              currentUserId={currentUser?.id}
-              onSendMessage={handleSendMessage}
-              unreadCount={unreadChatCount}
-              onResetUnread={() => setUnreadChatCount(0)}
-              isOpen={chatOpen}
-              setIsOpen={setChatOpen}
-            />
-          </main>
-        </>
-      )}
+        <FloatingChatWidget
+          messages={messages}
+          currentUserId={currentUser?.id}
+          onSendMessage={handleSendMessage}
+          unreadCount={unreadChatCount}
+          onResetUnread={() => setUnreadChatCount(0)}
+          isOpen={chatOpen}
+          setIsOpen={setChatOpen}
+        />
+      </main>
     </div>
   );
 }

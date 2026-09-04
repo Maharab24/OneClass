@@ -1,19 +1,69 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../common/context/AuthContext';
-import { Presentation, LogOut, Users, BookOpen, Sparkles } from 'lucide-react';
+import axiosInstance from '../../../common/api/axiosInstance';
+import { Presentation, LogOut, Users, BookOpen, Sparkles, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function TeacherDashboard() {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
+
+  const [joinCode, setJoinCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState(null);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  const handleStartClassroom = () => {
-    navigate('/whiteboard');
+  const handleCreateWhiteboard = async () => {
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const res = await axiosInstance.post('/rooms/create', {
+        hostName: auth?.fullName,
+      });
+      navigate('/whiteboard', {
+        state: {
+          room: res.data,
+          currentUser: res.data.currentUser,
+        },
+      });
+    } catch (err) {
+      setCreateError(err.response?.data?.message || err.message || 'Failed to create whiteboard room.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleJoinByCode = async (e) => {
+    e.preventDefault();
+    if (!joinCode.trim()) return;
+
+    setIsJoining(true);
+    setJoinError(null);
+    try {
+      const res = await axiosInstance.post('/rooms/join', {
+        roomCode: joinCode.trim().toUpperCase(),
+        userName: auth?.fullName,
+        requestedRole: 'CAN_WATCH',
+      });
+      navigate('/whiteboard', {
+        state: {
+          room: res.data,
+          currentUser: res.data.currentUser,
+        },
+      });
+    } catch (err) {
+      const msg = typeof err.response?.data === 'string' ? err.response.data : err.response?.data?.message || 'Room not found or unable to join.';
+      setJoinError(msg);
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   return (
@@ -49,7 +99,7 @@ export default function TeacherDashboard() {
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-10 space-y-8">
         {/* Welcome Banner */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600/30 via-indigo-600/20 to-purple-600/30 border border-white/10 p-8 md:p-10 shadow-2xl">
-          <div className="relative z-10 max-w-2xl space-y-4">
+          <div className="relative z-10 max-w-3xl space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-xs font-semibold text-blue-300">
               <Sparkles className="w-3.5 h-3.5" />
               Interactive Collaborative Suite
@@ -60,15 +110,67 @@ export default function TeacherDashboard() {
             <p className="text-slate-300 text-sm md:text-base leading-relaxed">
               Launch real-time collaborative whiteboards, invite students with dynamic room codes, manage editing permissions, and communicate through live room chat.
             </p>
-            <div className="pt-2 flex flex-wrap gap-4">
+
+            {createError && (
+              <div className="p-3 bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs rounded-xl flex items-center gap-2 max-w-md">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{createError}</span>
+              </div>
+            )}
+
+            {/* Actions: Direct Create & Direct Join */}
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
               <button
-                onClick={handleStartClassroom}
-                className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-xl shadow-blue-500/25 transition-all transform hover:scale-[1.02] flex items-center gap-2.5"
+                onClick={handleCreateWhiteboard}
+                disabled={isCreating}
+                className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-xl shadow-blue-500/25 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5"
               >
-                <Presentation className="w-5 h-5" />
-                <span>Launch Interactive Whiteboard</span>
+                {isCreating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Creating Classroom...</span>
+                  </>
+                ) : (
+                  <>
+                    <Presentation className="w-5 h-5" />
+                    <span>Launch New Whiteboard</span>
+                  </>
+                )}
               </button>
+
+              {/* Quick Join via Code Form */}
+              <form onSubmit={handleJoinByCode} className="flex gap-2">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="Enter 6-char Code"
+                  maxLength={6}
+                  className="w-44 px-3.5 py-3 bg-slate-800/80 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 tracking-wider uppercase font-mono text-center text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={isJoining || !joinCode.trim()}
+                  className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {isJoining ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Join</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
+
+            {joinError && (
+              <div className="p-3 bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs rounded-xl flex items-center gap-2 max-w-md">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{joinError}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -76,7 +178,7 @@ export default function TeacherDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Card 1: Collaborative Whiteboard */}
           <div
-            onClick={handleStartClassroom}
+            onClick={handleCreateWhiteboard}
             className="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-white/10 transition-all cursor-pointer space-y-4 shadow-lg"
           >
             <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
@@ -87,7 +189,7 @@ export default function TeacherDashboard() {
               Draw freehand, add geometric shapes, straight lines, sticky text notes, and use the smart object eraser.
             </p>
             <div className="inline-flex items-center gap-2 text-xs font-semibold text-blue-400 group-hover:text-blue-300">
-              <span>Open Classroom</span> &rarr;
+              <span>{isCreating ? 'Creating Room...' : 'Start Session'}</span> &rarr;
             </div>
           </div>
 

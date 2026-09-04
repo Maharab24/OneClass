@@ -145,6 +145,18 @@ public class AuthService {
                 .build();
     }
 
+    public AuthResponse getCurrentUser(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new InvalidCredentialsException("User not found"));
+
+        return AuthResponse.builder()
+                .userId(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .build();
+    }
+
     private String generateOtp() {
         int code = 100000 + RANDOM.nextInt(900000);
         return String.valueOf(code);
