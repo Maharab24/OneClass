@@ -31,7 +31,7 @@ public class AuthService {
 
     // ---------- REGISTER ----------
     // Creates the account as UNVERIFIED, emails an OTP, and does NOT return a JWT.
-    // The frontend should route the user to an "enter OTP" screen next.
+    // The frontend  route the user to an "enter OTP" screen next.
     @Transactional
     public MessageResponse register(RegisterRequest request) {
         Role role = parseRole(request.getRole());
