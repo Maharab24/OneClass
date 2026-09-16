@@ -8,7 +8,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/oneclass_db}
     username: ${DB_USERNAME:oneclass_user}
-    password: ${DB_PASSWORD:oneclass_pass}
+    password: ${DB_PASSWORD:oneclass123}
     driver-class-name: org.postgresql.Driver
 
   jpa:
