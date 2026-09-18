@@ -38,3 +38,8 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}   # 24 hours
   otp:
     expiration-minutes: ${OTP_EXPIRATION_MINUTES:10}
+  livekit:
+    # Use wss:// for LiveKit Cloud/production or ws://localhost:7880 for local development.
+    url: ${LIVEKIT_URL:}
+    api-key: ${LIVEKIT_API_KEY:}
+    api-secret: ${LIVEKIT_API_SECRET:}

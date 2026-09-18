@@ -25,6 +25,15 @@ export default function TeacherLoginPage() {
       navigate('/teacher/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
+      const status = err.response?.status;
+      const msg = err.response?.data?.message || 'Login failed';
+      if (status === 403) {
+        navigate('/verify-otp', {
+          state: { email: form.identifier.includes('@') ? form.identifier : '', role: 'TEACHER' },
+        });
+        return;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
