@@ -8,6 +8,7 @@ import Toolbar from '../drawing/components/Toolbar';
 import LiveCursors from '../presence/components/LiveCursors';
 import WhiteboardCanvas from '../drawing/components/WhiteboardCanvas';
 import FloatingChatWidget from '../chat/components/FloatingChatWidget';
+import AudioCallControl from '../call/components/AudioCallControl';
 import { stompService } from '../drawing/services/stompClient';
 import { AlertCircle } from 'lucide-react';
 
@@ -352,6 +353,8 @@ export default function WhiteboardPage() {
       />
 
       <main className="flex-1 relative overflow-hidden">
+        <AudioCallControl roomCode={room.roomCode} />
+
         <Toolbar
           activeTool={activeTool}
           setActiveTool={setActiveTool}

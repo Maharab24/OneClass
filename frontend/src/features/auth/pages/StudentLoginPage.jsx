@@ -1,13 +1,17 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useState } from 'react';
+import { loginUser } from '../api/authApi';
+import { useAuth } from '../../../common/context/AuthContext';
 
 export default function StudentLoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: '',
     rememberMe: false
   });
+  const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,14 +23,36 @@ export default function StudentLoginPage() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setIsLoading(true);
-    // Simulate login
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const data = await loginUser({
+        identifier: formData.identifier,
+        password: formData.password,
+        role: 'STUDENT'
+      });
+      login(data);
       navigate('/student/dashboard');
-    }, 1500);
+    } catch (err) {
+      const status = err.response?.status;
+      const msg = err.response?.data?.message || 'Login failed';
+
+      // 403 means account exists but email is not verified yet
+      if (status === 403) {
+        navigate('/verify-otp', {
+          state: {
+            email: formData.identifier.includes('@') ? formData.identifier : '',
+            role: 'STUDENT'
+          },
+        });
+        return;
+      }
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -58,10 +84,10 @@ export default function StudentLoginPage() {
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
+            {/* Identifier (Email / Phone) Field */}
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">
-                Email Address
+                Email or Phone Number
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -70,13 +96,13 @@ export default function StudentLoginPage() {
                   </svg>
                 </div>
                 <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
+                  type="text"
+                  name="identifier"
+                  value={formData.identifier}
                   onChange={handleInputChange}
                   required
                   className="w-full pl-10 pr-3 py-3 bg-slate-800/50 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
-                  placeholder="student@example.com"
+                  placeholder="student@example.com or 01XXXXXXXXX"
                 />
               </div>
             </div>
@@ -140,6 +166,29 @@ export default function StudentLoginPage() {
               </button>
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 animate-shake">
+                <p className="text-red-400 text-sm text-center">{error}</p>
+                {error.toLowerCase().includes('verify') && (
+                  <div className="text-center mt-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/verify-otp', {
+                        state: {
+                          email: formData.identifier.includes('@') ? formData.identifier : '',
+                          role: 'STUDENT'
+                        }
+                      })}
+                      className="text-xs text-purple-400 hover:text-purple-300 underline font-medium"
+                    >
+                      Go to OTP Verification &rarr;
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Login Button */}
             <button
               type="submit"
@@ -190,19 +239,26 @@ export default function StudentLoginPage() {
           {/* Sign Up Link */}
           <p className="text-center text-sm text-gray-400">
             Don't have an account?{' '}
-            <button
-              type="button"
-              onClick={() => navigate('/student/register')}
-              className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+            <Link
+              to="/student/register"
+              className="text-purple-400 hover:text-purple-300 font-medium transition-colors hover:underline"
             >
               Sign up
-            </button>
+            </Link>
           </p>
         </div>
       </div>
 
       {/* Custom Animations */}
       <style jsx>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-10px); }
+          75% { transform: translateX(10px); }
+        }
+        .animate-shake {
+          animation: shake 0.3s ease-in-out;
+        }
         @keyframes fade-up {
           from {
             opacity: 0;
