@@ -14,16 +14,22 @@ public class RoomResponse {
     private Collection<User> participants;
     private List<DrawingElement> elements;
     private List<ChatMessage> messages;
+    private boolean videoActive;
 
     public RoomResponse() {}
 
     public RoomResponse(String roomCode, String hostUserId, User currentUser, Collection<User> participants, List<DrawingElement> elements, List<ChatMessage> messages) {
+        this(roomCode, hostUserId, currentUser, participants, elements, messages, false);
+    }
+
+    public RoomResponse(String roomCode, String hostUserId, User currentUser, Collection<User> participants, List<DrawingElement> elements, List<ChatMessage> messages, boolean videoActive) {
         this.roomCode = roomCode;
         this.hostUserId = hostUserId;
         this.currentUser = currentUser;
         this.participants = participants;
         this.elements = elements;
         this.messages = messages;
+        this.videoActive = videoActive;
     }
 
     public String getRoomCode() {
@@ -72,5 +78,13 @@ public class RoomResponse {
 
     public void setMessages(List<ChatMessage> messages) {
         this.messages = messages;
+    }
+
+    public boolean isVideoActive() {
+        return videoActive;
+    }
+
+    public void setVideoActive(boolean videoActive) {
+        this.videoActive = videoActive;
     }
 }

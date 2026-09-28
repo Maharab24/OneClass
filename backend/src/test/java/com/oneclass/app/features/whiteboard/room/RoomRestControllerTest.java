@@ -47,14 +47,14 @@ class RoomRestControllerTest {
 
         com.oneclass.app.common.model.User roomUser = new com.oneclass.app.common.model.User("u1", "Prof. Einstein", Role.HOST, "#ff0000");
         RoomResponse expectedResponse = new RoomResponse("ROOM12", "u1", roomUser, List.of(roomUser), Collections.emptyList(), Collections.emptyList());
-        when(roomService.createRoom(any(CreateRoomRequest.class))).thenReturn(expectedResponse);
+        when(roomService.createRoom(any(CreateRoomRequest.class), any())).thenReturn(expectedResponse);
 
         ResponseEntity<RoomResponse> result = controller.createRoom(null, auth);
 
         assertNotNull(result);
         assertEquals(200, result.getStatusCode().value());
         assertEquals("Prof. Einstein", result.getBody().getCurrentUser().getName());
-        verify(roomService).createRoom(argThat(req -> "Prof. Einstein".equals(req.getHostName())));
+        verify(roomService).createRoom(argThat(req -> "Prof. Einstein".equals(req.getHostName())), eq("teacher@oneclass.com"));
     }
 
     @Test

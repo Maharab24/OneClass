@@ -2,6 +2,7 @@ package com.oneclass.app.features.whiteboard.call.service;
 
 import com.oneclass.app.features.auth.model.User;
 import com.oneclass.app.features.whiteboard.call.dto.LiveKitCallJoinResponse;
+import com.oneclass.app.features.whiteboard.call.dto.LiveKitVideoCallJoinResponse;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -61,6 +62,32 @@ public class LiveKitService {
                 .compact();
 
         return new LiveKitCallJoinResponse(serverUrl, token, expiresAt, user.getFullName());
+    }
+
+    public LiveKitVideoCallJoinResponse createVideoJoinDetails(String roomCode, User user, boolean canPublish) {
+        ensureConfigured();
+
+        String roomName = "oneclass-video-" + roomCode.trim().toLowerCase();
+        // LiveKit identities must be unique in a room. Use video suffix to avoid collision with audio call.
+        String identity = "user-" + user.getId() + "-video";
+        Instant expiresAt = Instant.now().plus(TOKEN_LIFETIME);
+
+        String token = Jwts.builder()
+                .issuer(apiKey)
+                .subject(identity)
+                .issuedAt(new Date())
+                .expiration(Date.from(expiresAt))
+                .claim("name", user.getFullName())
+                .claim("video", Map.of(
+                        "room", roomName,
+                        "roomJoin", true,
+                        "canPublish", canPublish,
+                        "canSubscribe", true
+                ))
+                .signWith(signingKey(), SignatureAlgorithm.HS256)
+                .compact();
+
+        return new LiveKitVideoCallJoinResponse(serverUrl, token, expiresAt, user.getFullName(), canPublish);
     }
 
     private SecretKey signingKey() {

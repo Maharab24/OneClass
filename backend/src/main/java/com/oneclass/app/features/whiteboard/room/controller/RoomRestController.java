@@ -44,7 +44,8 @@ public class RoomRestController {
         }
 
         CreateRoomRequest finalRequest = new CreateRoomRequest(hostName.trim());
-        RoomResponse response = roomService.createRoom(finalRequest);
+        String hostEmail = (authentication != null && authentication.isAuthenticated()) ? authentication.getName() : null;
+        RoomResponse response = roomService.createRoom(finalRequest, hostEmail);
         return ResponseEntity.ok(response);
     }
 

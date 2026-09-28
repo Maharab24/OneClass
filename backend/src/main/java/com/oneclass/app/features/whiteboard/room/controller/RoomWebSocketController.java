@@ -86,4 +86,22 @@ public class RoomWebSocketController {
             log.warn("Failed to update role for room {}: {}", request.getRoomCode(), e.getMessage());
         }
     }
+
+    @MessageMapping("/room.video-status")
+    public void handleVideoStatus(@Payload Map<String, Object> payload) {
+        try {
+            String roomCode = (String) payload.get("roomCode");
+            Object activeObj = payload.get("active");
+            Boolean active = activeObj instanceof Boolean ? (Boolean) activeObj : Boolean.parseBoolean(String.valueOf(activeObj));
+            if (roomCode != null) {
+                roomService.setVideoActive(roomCode, Boolean.TRUE.equals(active));
+                messagingTemplate.convertAndSend(
+                        "/topic/room/" + roomCode.toUpperCase() + "/video-status",
+                        payload
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Failed to update video status: {}", e.getMessage());
+        }
+    }
 }

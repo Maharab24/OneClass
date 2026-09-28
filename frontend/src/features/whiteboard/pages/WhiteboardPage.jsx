@@ -9,6 +9,8 @@ import LiveCursors from '../presence/components/LiveCursors';
 import WhiteboardCanvas from '../drawing/components/WhiteboardCanvas';
 import FloatingChatWidget from '../chat/components/FloatingChatWidget';
 import AudioCallControl from '../call/components/AudioCallControl';
+import FloatingVideoWindow from '../call/components/FloatingVideoWindow';
+import { liveKitVideoService } from '../call/services/liveKitVideoService';
 import { stompService } from '../drawing/services/stompClient';
 import { AlertCircle } from 'lucide-react';
 
@@ -32,6 +34,11 @@ export default function WhiteboardPage() {
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [videoActive, setVideoActive] = useState(() => location.state?.room?.videoActive || false);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [remoteVideoTrack, setRemoteVideoTrack] = useState(null);
+  const [videoError, setVideoError] = useState('');
 
   // Whiteboard Tool State (Default to Electric Indigo)
   const [activeTool, setActiveTool] = useState('brush');
@@ -46,6 +53,9 @@ export default function WhiteboardPage() {
   const seenMessageIdsRef = useRef(
     new Set((location.state?.room?.messages || []).map((m) => m.id))
   );
+  const videoStartedRef = useRef(false);
+  const videoDismissedRef = useRef(false);
+  const stompReadyRef = useRef(false);
 
   useEffect(() => {
     chatOpenRef.current = chatOpen;
@@ -75,6 +85,7 @@ export default function WhiteboardPage() {
 
     stompService.connect(
       () => {
+        stompReadyRef.current = true;
         // 1. Subscribe to user list & role updates
         const unsubUsers = stompService.subscribe(`/topic/room/${roomCode}/users`, (updatedUsers) => {
           const userList = Array.isArray(updatedUsers) ? updatedUsers : Object.values(updatedUsers);
@@ -137,12 +148,30 @@ export default function WhiteboardPage() {
           }
         });
 
+        const unsubVideoStatus = stompService.subscribe(`/topic/room/${roomCode}/video-status`, (payload) => {
+          const active = Boolean(payload?.active);
+          setVideoActive(active);
+          if (active) {
+            videoDismissedRef.current = false;
+          } else if (userRole !== 'HOST') {
+            videoDismissedRef.current = false;
+            setVideoOpen(false);
+          }
+        });
+
         // Notify server user joined once on connect
         stompService.send('/app/room.user-joined', {
           roomCode,
           userId: currentUserId,
           userName: currentUserName,
         });
+
+        if (userRole === 'HOST' && videoStartedRef.current) {
+          stompService.send('/app/room.video-status', {
+            roomCode,
+            active: true,
+          });
+        }
 
         return () => {
           unsubUsers?.();
@@ -151,6 +180,7 @@ export default function WhiteboardPage() {
           unsubDelete?.();
           unsubCursors?.();
           unsubChat?.();
+          unsubVideoStatus?.();
         };
       },
       () => {
@@ -159,9 +189,122 @@ export default function WhiteboardPage() {
     );
 
     return () => {
+      stompReadyRef.current = false;
       stompService.disconnect();
     };
-  }, [room?.roomCode, currentUser?.id, currentUser?.name]);
+  }, [room?.roomCode, currentUser?.id, currentUser?.name, userRole]);
+
+  useEffect(() => () => {
+    videoStartedRef.current = false;
+    videoDismissedRef.current = false;
+    liveKitVideoService.leave();
+  }, []);
+
+  // Host starts or focuses video broadcast
+  const startVideo = useCallback(async () => {
+    if (!room?.roomCode || videoLoading) return;
+    if (videoOpen) return;
+
+    setVideoLoading(true);
+    setVideoError('');
+    try {
+      const { data } = await axiosInstance.post(`/rooms/${room.roomCode}/video-call/join`);
+      const joinedRoom = await liveKitVideoService.join({
+        serverUrl: data.serverUrl,
+        token: data.token,
+        isHost: true,
+        onVideoTrackSubscribed: (track) => setRemoteVideoTrack(track),
+        onVideoTrackUnsubscribed: () => setRemoteVideoTrack(null),
+        onDisconnect: () => {
+          videoStartedRef.current = false;
+          setVideoOpen(false);
+        },
+      });
+
+      if (!joinedRoom) return;
+
+      videoStartedRef.current = true;
+      setVideoOpen(true);
+      setVideoActive(true);
+      if (stompReadyRef.current) {
+        stompService.send('/app/room.video-status', {
+          roomCode: room.roomCode,
+          active: true,
+        });
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setVideoError('This whiteboard room is no longer active. Rejoin with a new room code.');
+      } else {
+        const detail = err.response?.data?.message || err.message;
+        setVideoError(detail ? `Could not start the video broadcast: ${detail}` : 'Could not start the video broadcast.');
+      }
+    } finally {
+      setVideoLoading(false);
+    }
+  }, [room?.roomCode, videoLoading, videoOpen]);
+
+  const closeVideo = useCallback(async () => {
+    videoDismissedRef.current = true;
+    videoStartedRef.current = false;
+    await liveKitVideoService.leave();
+    setRemoteVideoTrack(null);
+    setVideoOpen(false);
+    if (userRole === 'HOST' && room?.roomCode) {
+      setVideoActive(false);
+      if (stompReadyRef.current) {
+        stompService.send('/app/room.video-status', {
+          roomCode: room.roomCode,
+          active: false,
+        });
+      }
+    }
+  }, [room?.roomCode, userRole]);
+
+  // Viewer join for students / non-hosts
+  const joinVideoAsViewer = useCallback(async () => {
+    if (!room?.roomCode || videoStartedRef.current) return;
+    try {
+      const { data } = await axiosInstance.post(`/rooms/${room.roomCode}/video-call/join`);
+      const joinedRoom = await liveKitVideoService.join({
+        serverUrl: data.serverUrl,
+        token: data.token,
+        isHost: false,
+        onVideoTrackSubscribed: (track) => setRemoteVideoTrack(track),
+        onVideoTrackUnsubscribed: () => setRemoteVideoTrack(null),
+        onDisconnect: () => {
+          videoStartedRef.current = false;
+          setVideoOpen(false);
+        },
+      });
+
+      if (!joinedRoom) return;
+
+      videoStartedRef.current = true;
+      setVideoOpen(true);
+    } catch (err) {
+      console.warn('Could not connect to host video broadcast:', err);
+    }
+  }, [room?.roomCode]);
+
+  const handleWatchVideo = useCallback(() => {
+    videoDismissedRef.current = false;
+    joinVideoAsViewer();
+  }, [joinVideoAsViewer]);
+
+  // Automatically connect viewers when host begins broadcasting
+  useEffect(() => {
+    if (userRole === 'HOST' || !room?.roomCode || !currentUser?.id) return;
+
+    if (videoActive && !videoDismissedRef.current && !videoStartedRef.current) {
+      joinVideoAsViewer();
+    } else if (!videoActive && videoStartedRef.current) {
+      videoStartedRef.current = false;
+      liveKitVideoService.leave();
+      setRemoteVideoTrack(null);
+      setVideoOpen(false);
+    }
+  }, [videoActive, userRole, room?.roomCode, currentUser?.id, joinVideoAsViewer]);
 
   // Join room using authenticated account name synced with database
   const handleJoinRoom = useCallback(
@@ -353,7 +496,30 @@ export default function WhiteboardPage() {
       />
 
       <main className="flex-1 relative overflow-hidden">
-        <AudioCallControl roomCode={room.roomCode} />
+        <AudioCallControl
+          roomCode={room.roomCode}
+          isHost={userRole === 'HOST'}
+          videoOpen={videoOpen}
+          videoLoading={videoLoading}
+          onToggleVideo={startVideo}
+          videoActive={videoActive}
+          onWatchVideo={handleWatchVideo}
+        />
+
+        {videoOpen && (
+          <FloatingVideoWindow
+            isHost={userRole === 'HOST'}
+            hostName={participants.find((participant) => participant.role === 'HOST')?.name}
+            onClose={closeVideo}
+            remoteVideoTrack={remoteVideoTrack}
+          />
+        )}
+
+        {videoError && (
+          <p role="alert" className="absolute bottom-4 left-6 z-40 max-w-xs rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 shadow-lg">
+            {videoError}
+          </p>
+        )}
 
         <Toolbar
           activeTool={activeTool}

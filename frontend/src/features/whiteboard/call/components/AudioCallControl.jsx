@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle, Mic, MicOff, Phone, PhoneOff, UsersRound } from 'lucide-react';
+import { LoaderCircle, Mic, MicOff, Phone, PhoneOff, UsersRound, Video } from 'lucide-react';
 import axiosInstance from '../../../../common/api/axiosInstance';
 import { liveKitCallService } from '../services/liveKitCallService';
 
 export default function AudioCallControl({ roomCode }) {
+export default function AudioCallControl({
+  roomCode,
+  isHost = false,
+  videoOpen = false,
+  videoLoading = false,
+  onToggleVideo,
+  videoActive = false,
+  onWatchVideo,
+}) {
   const [status, setStatus] = useState('idle');
   const [muted, setMuted] = useState(true);
   const [participantCount, setParticipantCount] = useState(0);
@@ -62,6 +72,48 @@ export default function AudioCallControl({ roomCode }) {
   return (
     <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
       <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/95 p-1.5 shadow-lg shadow-slate-900/10 backdrop-blur">
+        {/* Host Video Call Control */}
+        {isHost && (
+          <>
+            <button
+              type="button"
+              onClick={onToggleVideo}
+              disabled={videoLoading}
+              className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all shadow-sm ${
+                videoOpen
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              } disabled:cursor-not-allowed disabled:opacity-70`}
+              aria-label={videoOpen ? 'Host Video is Live' : 'Start Video Call'}
+              title={videoOpen ? 'Host Video is Live' : 'Start Video Call'}
+            >
+              {videoLoading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Video className="h-4 w-4" />
+              )}
+              <span>{videoOpen ? 'Video Live' : videoLoading ? 'Starting' : 'Video call'}</span>
+            </button>
+            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+          </>
+        )}
+
+        {/* Student Watch Video Control if Host is broadcasting and Student closed the floating window */}
+        {!isHost && videoActive && !videoOpen && (
+          <>
+            <button
+              type="button"
+              onClick={onWatchVideo}
+              className="flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+              aria-label="Watch Host Video"
+              title="Watch Host Video"
+            >
+              <Video className="h-4 w-4" />
+              <span>Watch Video</span>
+            </button>
+            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+          </>
+        )}
         {joined ? (
           <>
             <span className="hidden sm:inline-flex items-center gap-1 px-2 text-xs font-semibold text-slate-600" title="People in audio call">
