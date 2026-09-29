@@ -32,6 +32,8 @@ build/
 ### VS Code & Environment ###
 .vscode/
 .env
+!.env.example
 *.log
 .DS_Store
+
 

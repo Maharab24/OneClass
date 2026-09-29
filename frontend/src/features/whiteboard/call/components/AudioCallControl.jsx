@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { LoaderCircle, Mic, MicOff, Phone, PhoneOff, UsersRound } from 'lucide-react';
 import { LoaderCircle, Mic, MicOff, Phone, PhoneOff, UsersRound, Video } from 'lucide-react';
 import axiosInstance from '../../../../common/api/axiosInstance';
 import { liveKitCallService } from '../services/liveKitCallService';
 
-export default function AudioCallControl({ roomCode }) {
 export default function AudioCallControl({
   roomCode,
   isHost = false,
