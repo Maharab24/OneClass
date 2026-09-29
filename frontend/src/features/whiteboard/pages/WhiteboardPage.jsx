@@ -56,6 +56,10 @@ export default function WhiteboardPage() {
   }, [currentUser]);
 
   const handleExit = useCallback(() => {
+    if (location.state?.returnTo) {
+      navigate(location.state.returnTo);
+      return;
+    }
     if (auth?.role === 'TEACHER') {
       navigate('/teacher/dashboard');
     } else if (auth?.role === 'STUDENT') {
@@ -63,7 +67,7 @@ export default function WhiteboardPage() {
     } else {
       navigate('/');
     }
-  }, [auth?.role, navigate]);
+  }, [auth?.role, navigate, location.state?.returnTo]);
 
   // Handle STOMP WebSocket subscriptions once room is joined
   useEffect(() => {
