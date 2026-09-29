@@ -93,6 +93,10 @@ export default function WhiteboardPage() {
   }, [room?.roomCode]);
 
   const handleExit = useCallback(() => {
+    if (location.state?.returnTo) {
+      navigate(location.state.returnTo);
+      return;
+    }
     if (auth?.role === 'TEACHER') {
       navigate('/teacher/dashboard');
     } else if (auth?.role === 'STUDENT') {
@@ -100,7 +104,7 @@ export default function WhiteboardPage() {
     } else {
       navigate('/');
     }
-  }, [auth?.role, navigate]);
+  }, [auth?.role, navigate, location.state?.returnTo]);
 
   // Viewport Navigation Handlers
   const handleResetView = useCallback(() => {
