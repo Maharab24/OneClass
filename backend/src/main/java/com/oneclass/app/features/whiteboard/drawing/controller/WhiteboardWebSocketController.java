@@ -5,6 +5,8 @@ import com.oneclass.app.features.whiteboard.chat.model.ChatMessage;
 import com.oneclass.app.features.whiteboard.chat.service.ChatService;
 import com.oneclass.app.features.whiteboard.drawing.dto.ClearCanvasDto;
 import com.oneclass.app.features.whiteboard.drawing.dto.DrawElementDto;
+import com.oneclass.app.features.whiteboard.drawing.dto.SyncRequestDto;
+import com.oneclass.app.features.whiteboard.drawing.dto.SyncSnapshotDto;
 import com.oneclass.app.features.whiteboard.drawing.service.WhiteboardService;
 import com.oneclass.app.features.whiteboard.room.service.RoomService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -96,5 +98,32 @@ public class WhiteboardWebSocketController {
                 );
             });
         }
+    }
+
+    @MessageMapping("/room.sync-request")
+    public void handleSyncRequest(@Payload SyncRequestDto dto) {
+        if (dto.getRoomCode() == null || dto.getRequesterUserId() == null) {
+            return;
+        }
+
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + dto.getRoomCode().toUpperCase() + "/sync-request",
+                dto
+        );
+    }
+
+    @MessageMapping("/room.sync-snapshot")
+    public void handleSyncSnapshot(@Payload SyncSnapshotDto dto) {
+        if (dto.getRoomCode() == null || dto.getSenderUserId() == null || dto.getTargetUserId() == null || dto.getElements() == null) {
+            return;
+        }
+
+        // Ephemeral in-session buffer update for authorized editors
+        whiteboardService.syncSnapshot(dto.getRoomCode(), dto.getSenderUserId(), dto.getElements());
+
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + dto.getRoomCode().toUpperCase() + "/sync-snapshot",
+                dto
+        );
     }
 }
