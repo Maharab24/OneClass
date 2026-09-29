@@ -10,8 +10,10 @@ import WhiteboardCanvas from '../drawing/components/WhiteboardCanvas';
 import FloatingChatWidget from '../chat/components/FloatingChatWidget';
 import AudioCallControl from '../call/components/AudioCallControl';
 import FloatingVideoWindow from '../call/components/FloatingVideoWindow';
+import KeyboardShortcutsModal from '../drawing/components/KeyboardShortcutsModal';
 import { liveKitVideoService } from '../call/services/liveKitVideoService';
 import { stompService } from '../drawing/services/stompClient';
+import { whiteboardStorage } from '../drawing/services/whiteboardStorage';
 import { AlertCircle } from 'lucide-react';
 
 export default function WhiteboardPage() {
@@ -40,6 +42,11 @@ export default function WhiteboardPage() {
   const [remoteVideoTrack, setRemoteVideoTrack] = useState(null);
   const [videoError, setVideoError] = useState('');
 
+  // Viewport / Pan & Zoom State
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   // Whiteboard Tool State (Default to Electric Indigo)
   const [activeTool, setActiveTool] = useState('brush');
   const [color, setColor] = useState('#4f46e5');
@@ -50,6 +57,7 @@ export default function WhiteboardPage() {
   // Keep references to mutable UI states for STOMP callbacks without stale closures
   const chatOpenRef = useRef(chatOpen);
   const currentUserRef = useRef(currentUser);
+  const elementsRef = useRef(elements);
   const seenMessageIdsRef = useRef(
     new Set((location.state?.room?.messages || []).map((m) => m.id))
   );
@@ -58,12 +66,31 @@ export default function WhiteboardPage() {
   const stompReadyRef = useRef(false);
 
   useEffect(() => {
+    elementsRef.current = elements;
+  }, [elements]);
+
+  useEffect(() => {
     chatOpenRef.current = chatOpen;
   }, [chatOpen]);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
+
+  // Hydrate canvas elements from local browser IndexedDB
+  useEffect(() => {
+    if (!room?.roomCode) return;
+    const roomCode = room.roomCode.toUpperCase();
+
+    whiteboardStorage.loadElements(roomCode).then((localElements) => {
+      if (localElements && localElements.length > 0) {
+        setElements(localElements);
+      } else if (room.elements && room.elements.length > 0) {
+        setElements(room.elements);
+        whiteboardStorage.saveElementsImmediate(roomCode, room.elements);
+      }
+    });
+  }, [room?.roomCode]);
 
   const handleExit = useCallback(() => {
     if (auth?.role === 'TEACHER') {
@@ -74,6 +101,69 @@ export default function WhiteboardPage() {
       navigate('/');
     }
   }, [auth?.role, navigate]);
+
+  // Viewport Navigation Handlers
+  const handleResetView = useCallback(() => {
+    setStagePos({ x: 0, y: 0 });
+    setScale(1);
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    setScale((prev) => Math.min(prev * 1.15, 4));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setScale((prev) => Math.max(prev / 1.15, 0.2));
+  }, []);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isInput =
+        ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) ||
+        document.activeElement?.isContentEditable;
+      if (isInput) return;
+
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowShortcuts((prev) => !prev);
+        return;
+      }
+
+      if (e.key === '0') {
+        e.preventDefault();
+        handleResetView();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        setShowShortcuts(false);
+        return;
+      }
+
+      if (!canEdit) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'b' || key === 'p') {
+        setActiveTool('brush');
+      } else if (key === 'e') {
+        setActiveTool('eraser');
+      } else if (key === 'h') {
+        setActiveTool('pan');
+      } else if (key === 'r') {
+        setActiveTool('rectangle');
+      } else if (key === 'c' || key === 'o') {
+        setActiveTool('circle');
+      } else if (key === 'l') {
+        setActiveTool('line');
+      } else if (key === 't') {
+        setActiveTool('text');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canEdit, handleResetView]);
 
   // Handle STOMP WebSocket subscriptions once room is joined
   useEffect(() => {
@@ -98,12 +188,20 @@ export default function WhiteboardPage() {
           }
         });
 
-        // 2. Subscribe to drawing events
+        // 2. Subscribe to drawing events (upsert)
         const unsubDraw = stompService.subscribe(`/topic/room/${roomCode}/draw`, (payload) => {
           if (payload?.element) {
             setElements((prev) => {
-              if (prev.some((e) => e.id === payload.element.id)) return prev;
-              return [...prev, payload.element];
+              const index = prev.findIndex((e) => e.id === payload.element.id);
+              let next;
+              if (index >= 0) {
+                next = [...prev];
+                next[index] = payload.element;
+              } else {
+                next = [...prev, payload.element];
+              }
+              whiteboardStorage.saveElements(roomCode, next);
+              return next;
             });
           }
         });
@@ -111,16 +209,44 @@ export default function WhiteboardPage() {
         // 3. Subscribe to clear canvas event
         const unsubClear = stompService.subscribe(`/topic/room/${roomCode}/clear`, () => {
           setElements([]);
+          whiteboardStorage.clearCanvas(roomCode);
         });
 
         // 4. Subscribe to element deletion event (Object Eraser)
         const unsubDelete = stompService.subscribe(`/topic/room/${roomCode}/delete-element`, (payload) => {
           if (payload?.elementId) {
-            setElements((prev) => prev.filter((e) => e.id !== payload.elementId));
+            setElements((prev) => {
+              const next = prev.filter((e) => e.id !== payload.elementId);
+              whiteboardStorage.saveElements(roomCode, next);
+              return next;
+            });
           }
         });
 
-        // 5. Subscribe to live remote cursors (filtered for Editors only)
+        // 5. Handle late-joiner sync request (Host or Editor responds with local canvas elements)
+        const unsubSyncReq = stompService.subscribe(`/topic/room/${roomCode}/sync-request`, (req) => {
+          if (req?.requesterUserId && req.requesterUserId !== currentUserId) {
+            const isEditor = currentUserRef.current?.role === 'HOST' || currentUserRef.current?.role === 'CAN_EDIT';
+            if (isEditor && elementsRef.current && elementsRef.current.length > 0) {
+              stompService.send('/app/room.sync-snapshot', {
+                roomCode,
+                targetUserId: req.requesterUserId,
+                senderUserId: currentUserId,
+                elements: elementsRef.current,
+              });
+            }
+          }
+        });
+
+        // 6. Handle sync snapshot delivery for this client
+        const unsubSyncSnap = stompService.subscribe(`/topic/room/${roomCode}/sync-snapshot`, (snapshot) => {
+          if (snapshot?.targetUserId === currentUserId && Array.isArray(snapshot.elements)) {
+            setElements(snapshot.elements);
+            whiteboardStorage.saveElementsImmediate(roomCode, snapshot.elements);
+          }
+        });
+
+        // 7. Subscribe to live remote cursors (filtered for Editors only)
         const unsubCursors = stompService.subscribe(`/topic/room/${roomCode}/cursors`, (cursorPayload) => {
           if (cursorPayload && cursorPayload.userId !== currentUserId) {
             setCursors((prev) => ({
@@ -130,7 +256,7 @@ export default function WhiteboardPage() {
           }
         });
 
-        // 6. Subscribe to live room chat messages
+        // 8. Subscribe to live room chat messages
         const unsubChat = stompService.subscribe(`/topic/room/${roomCode}/chat`, (newMsg) => {
           if (!newMsg?.id) return;
 
@@ -166,6 +292,17 @@ export default function WhiteboardPage() {
           userName: currentUserName,
         });
 
+        // Request peer state snapshot if our local browser storage has no cached elements
+        whiteboardStorage.loadElements(roomCode).then((cached) => {
+          if (!cached || cached.length === 0) {
+            stompService.send('/app/room.sync-request', {
+              roomCode,
+              requesterUserId: currentUserId,
+              requesterName: currentUserName,
+            });
+          }
+        });
+
         if (userRole === 'HOST' && videoStartedRef.current) {
           stompService.send('/app/room.video-status', {
             roomCode,
@@ -178,6 +315,8 @@ export default function WhiteboardPage() {
           unsubDraw?.();
           unsubClear?.();
           unsubDelete?.();
+          unsubSyncReq?.();
+          unsubSyncSnap?.();
           unsubCursors?.();
           unsubChat?.();
           unsubVideoStatus?.();
@@ -323,7 +462,17 @@ export default function WhiteboardPage() {
         setCurrentUser(data.currentUser);
         setUserRole(data.currentUser.role);
         setParticipants(data.participants || []);
-        setElements(data.elements || []);
+
+        const normalizedCode = codeToJoin.trim().toUpperCase();
+        const localCached = await whiteboardStorage.loadElements(normalizedCode);
+        if (localCached && localCached.length > 0) {
+          setElements(localCached);
+        } else {
+          setElements(data.elements || []);
+          if (data.elements && data.elements.length > 0) {
+            whiteboardStorage.saveElementsImmediate(normalizedCode, data.elements);
+          }
+        }
 
         const initialMsgs = data.messages || [];
         setMessages(initialMsgs);
@@ -354,17 +503,27 @@ export default function WhiteboardPage() {
     if (code) {
       handleJoinRoom(code);
     } else {
-      // Direct access without room or code -> user is not in a room, redirect to dashboard
       handleExit();
     }
   }, [room, location.state, location.search, handleJoinRoom, handleExit]);
 
-  // Dispatch new drawing element locally and to WebSocket STOMP
+  // Dispatch new or updated drawing element locally, persist to IndexedDB, and relay via WebSocket
   const handleAddElement = useCallback(
     (newElement) => {
       if (!canEdit || !room || !currentUser) return;
 
-      setElements((prev) => [...prev, newElement]);
+      setElements((prev) => {
+        const index = prev.findIndex((e) => e.id === newElement.id);
+        let next;
+        if (index >= 0) {
+          next = [...prev];
+          next[index] = newElement;
+        } else {
+          next = [...prev, newElement];
+        }
+        whiteboardStorage.saveElements(room.roomCode, next);
+        return next;
+      });
 
       stompService.send('/app/room.draw', {
         roomCode: room.roomCode,
@@ -380,7 +539,11 @@ export default function WhiteboardPage() {
     (elementId) => {
       if (!canEdit || !room || !currentUser) return;
 
-      setElements((prev) => prev.filter((e) => e.id !== elementId));
+      setElements((prev) => {
+        const next = prev.filter((e) => e.id !== elementId);
+        whiteboardStorage.saveElements(room.roomCode, next);
+        return next;
+      });
 
       stompService.send('/app/room.delete-element', {
         roomCode: room.roomCode,
@@ -413,12 +576,42 @@ export default function WhiteboardPage() {
     if (!canEdit || !room || !currentUser) return;
 
     setElements([]);
+    whiteboardStorage.clearCanvas(room.roomCode);
 
     stompService.send('/app/room.clear', {
       roomCode: room.roomCode,
       userId: currentUser.id,
     });
   }, [canEdit, room, currentUser]);
+
+  // Export canvas as local JSON file
+  const handleExportCanvas = useCallback(() => {
+    if (!room?.roomCode) return;
+    whiteboardStorage.exportCanvasAsJson(room.roomCode, elementsRef.current);
+  }, [room?.roomCode]);
+
+  // Import canvas from local JSON file
+  const handleImportCanvas = useCallback(
+    async (file) => {
+      if (!canEdit || !room?.roomCode) return;
+      try {
+        const importedElements = await whiteboardStorage.importCanvasFromJson(file);
+        setElements(importedElements);
+        whiteboardStorage.saveElementsImmediate(room.roomCode, importedElements);
+        if (stompReadyRef.current) {
+          stompService.send('/app/room.sync-snapshot', {
+            roomCode: room.roomCode,
+            targetUserId: currentUser?.id,
+            senderUserId: currentUser?.id,
+            elements: importedElements,
+          });
+        }
+      } catch (err) {
+        alert(err.message || 'Failed to import canvas file.');
+      }
+    },
+    [canEdit, room?.roomCode, currentUser?.id]
+  );
 
   // Host role change handler
   const handleRoleChange = (targetUserId, newRole) => {
@@ -529,10 +722,22 @@ export default function WhiteboardPage() {
           strokeWidth={strokeWidth}
           setStrokeWidth={setStrokeWidth}
           onClearCanvas={handleClearCanvas}
+          onExportCanvas={handleExportCanvas}
+          onImportCanvas={canEdit ? handleImportCanvas : undefined}
+          onResetView={handleResetView}
+          onOpenShortcuts={() => setShowShortcuts(true)}
+          scale={scale}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
           canEdit={canEdit}
         />
 
-        <LiveCursors cursors={cursors} currentUserId={currentUser?.id} />
+        <LiveCursors
+          cursors={cursors}
+          currentUserId={currentUser?.id}
+          stagePos={stagePos}
+          scale={scale}
+        />
 
         <WhiteboardCanvas
           elements={elements}
@@ -543,7 +748,42 @@ export default function WhiteboardPage() {
           color={color}
           strokeWidth={strokeWidth}
           canEdit={canEdit}
+          stagePos={stagePos}
+          setStagePos={setStagePos}
+          scale={scale}
+          setScale={setScale}
         />
+
+        {/* Bottom Floating Keyboard Hints Bar */}
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-auto bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border border-slate-200/90 flex items-center gap-3 text-xs font-semibold text-slate-600 select-none hidden sm:flex">
+          <div className="flex items-center gap-1.5" title="Hold space and drag to pan">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10px] text-slate-700 shadow-2xs">Space</kbd>
+            <span>+ Drag Pan</span>
+          </div>
+          <div className="w-px h-3 bg-slate-200" />
+          <div className="flex items-center gap-1.5" title="Swipe trackpad or scroll mouse wheel to pan">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10px] text-slate-700 shadow-2xs">Scroll</kbd>
+            <span>Pan</span>
+          </div>
+          <div className="w-px h-3 bg-slate-200" />
+          <button
+            onClick={handleResetView}
+            className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-pointer"
+            title="Reset pan & zoom to center (0)"
+          >
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10px] text-slate-700 shadow-2xs">0</kbd>
+            <span>Reset View</span>
+          </button>
+          <div className="w-px h-3 bg-slate-200" />
+          <button
+            onClick={() => setShowShortcuts(true)}
+            className="flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-bold transition-colors cursor-pointer"
+            title="View all keyboard shortcuts (?)"
+          >
+            <kbd className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 font-mono text-[10px] text-indigo-600 shadow-2xs">?</kbd>
+            <span>All Shortcuts</span>
+          </button>
+        </div>
 
         <UserListSidebar
           isOpen={sidebarOpen}
@@ -563,7 +803,13 @@ export default function WhiteboardPage() {
           isOpen={chatOpen}
           setIsOpen={setChatOpen}
         />
+
+        <KeyboardShortcutsModal
+          isOpen={showShortcuts}
+          onClose={() => setShowShortcuts(false)}
+        />
       </main>
     </div>
   );
 }
+
