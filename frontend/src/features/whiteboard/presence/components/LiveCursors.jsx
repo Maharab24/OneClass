@@ -1,7 +1,12 @@
 import React from 'react';
 import { MousePointer2 } from 'lucide-react';
 
-export default function LiveCursors({ cursors, currentUserId }) {
+export default function LiveCursors({
+  cursors,
+  currentUserId,
+  stagePos = { x: 0, y: 0 },
+  scale = 1
+}) {
   if (!cursors || Object.keys(cursors).length === 0) return null;
 
   return (
@@ -9,12 +14,15 @@ export default function LiveCursors({ cursors, currentUserId }) {
       {Object.values(cursors).map((cursor) => {
         if (!cursor || cursor.userId === currentUserId) return null;
 
+        const screenX = cursor.x * scale + stagePos.x;
+        const screenY = cursor.y * scale + stagePos.y;
+
         return (
           <div
             key={cursor.userId}
             className="absolute transition-all duration-75 ease-out flex items-center gap-1.5"
             style={{
-              transform: `translate3d(${cursor.x}px, ${cursor.y}px, 0)`,
+              transform: `translate3d(${screenX}px, ${screenY}px, 0)`,
             }}
           >
             {/* Custom SVG pointer cursor */}
@@ -41,3 +49,4 @@ export default function LiveCursors({ cursors, currentUserId }) {
     </div>
   );
 }
+

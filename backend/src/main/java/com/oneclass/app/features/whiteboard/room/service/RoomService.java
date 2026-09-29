@@ -37,17 +37,22 @@ public class RoomService {
     }
 
     public RoomResponse createRoom(CreateRoomRequest request) {
+        return createRoom(request, null);
+    }
+
+    public RoomResponse createRoom(CreateRoomRequest request, String hostEmail) {
         String roomCode = generateUniqueRoomCode();
         String userId = UUID.randomUUID().toString();
         String color = getRandomColor();
 
         User hostUser = new User(userId, request.getHostName(), Role.HOST, color);
         Room room = new Room(roomCode, userId);
+        room.setHostEmail(hostEmail);
         room.addUser(hostUser);
 
         roomRepository.save(room);
 
-        return new RoomResponse(roomCode, userId, hostUser, room.getUsers().values(), room.getElements(), room.getMessages());
+        return new RoomResponse(roomCode, userId, hostUser, room.getUsers().values(), room.getElements(), room.getMessages(), room.isVideoActive());
     }
 
     public RoomResponse joinRoom(JoinRoomRequest request) {
@@ -68,7 +73,37 @@ public class RoomService {
         room.addUser(newUser);
         roomRepository.save(room);
 
-        return new RoomResponse(roomCode, room.getHostUserId(), newUser, room.getUsers().values(), room.getElements(), room.getMessages());
+        return new RoomResponse(roomCode, room.getHostUserId(), newUser, room.getUsers().values(), room.getElements(), room.getMessages(), room.isVideoActive());
+    }
+
+    public boolean isHost(String roomCode, String userEmail, String userFullName) {
+        if (roomCode == null) return false;
+        Optional<Room> optionalRoom = roomRepository.findByRoomCode(roomCode.toUpperCase());
+        if (optionalRoom.isEmpty()) return false;
+
+        Room room = optionalRoom.get();
+        if (userEmail != null && !userEmail.isBlank() && userEmail.equalsIgnoreCase(room.getHostEmail())) {
+            return true;
+        }
+
+        if (userFullName != null && !userFullName.isBlank()) {
+            return room.getUsers().values().stream()
+                    .anyMatch(u -> u.getName().equalsIgnoreCase(userFullName.trim()) && u.getRole() == Role.HOST);
+        }
+
+        return false;
+    }
+
+    public boolean setVideoActive(String roomCode, boolean active) {
+        if (roomCode == null) return false;
+        Optional<Room> optionalRoom = roomRepository.findByRoomCode(roomCode.toUpperCase());
+        if (optionalRoom.isPresent()) {
+            Room room = optionalRoom.get();
+            room.setVideoActive(active);
+            roomRepository.save(room);
+            return true;
+        }
+        return false;
     }
 
     public Room updateRole(RoleUpdateRequest request) {

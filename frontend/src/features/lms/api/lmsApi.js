@@ -1,4 +1,4 @@
-import axiosInstance from '../../common/api/axiosInstance';
+import axiosInstance from '../../../common/api/axiosInstance';
 
 export const lmsApi = {
   classrooms: () => axiosInstance.get('/lms/classrooms').then((r) => r.data),

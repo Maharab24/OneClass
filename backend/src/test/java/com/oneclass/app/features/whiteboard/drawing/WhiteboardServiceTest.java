@@ -115,5 +115,40 @@ class WhiteboardServiceTest {
         boolean result = whiteboardService.clearCanvas(roomCode, userId);
         assertFalse(result);
     }
+
+    @Test
+    void testSyncSnapshot_Success() {
+        String roomCode = "ROOM07";
+        String userId = "user-1";
+        Room room = new Room(roomCode, userId);
+        DrawingElement oldElem = new DrawingElement();
+        oldElem.setId("old-1");
+        room.addElement(oldElem);
+
+        DrawingElement newElem1 = new DrawingElement();
+        newElem1.setId("new-1");
+        DrawingElement newElem2 = new DrawingElement();
+        newElem2.setId("new-2");
+
+        when(roomService.getAuthorizedEditorRoom(roomCode, userId)).thenReturn(Optional.of(room));
+
+        boolean result = whiteboardService.syncSnapshot(roomCode, userId, java.util.List.of(newElem1, newElem2));
+
+        assertTrue(result);
+        assertEquals(2, room.getElements().size());
+        assertEquals("new-1", room.getElements().get(0).getId());
+        assertEquals("new-2", room.getElements().get(1).getId());
+    }
+
+    @Test
+    void testSyncSnapshot_Unauthorized() {
+        String roomCode = "ROOM08";
+        String userId = "user-unauth";
+
+        when(roomService.getAuthorizedEditorRoom(roomCode, userId)).thenReturn(Optional.empty());
+
+        boolean result = whiteboardService.syncSnapshot(roomCode, userId, java.util.List.of());
+        assertFalse(result);
+    }
 }
 

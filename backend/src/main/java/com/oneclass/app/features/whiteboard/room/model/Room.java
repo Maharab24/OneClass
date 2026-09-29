@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Room {
     private String roomCode;
     private String hostUserId;
+    private String hostEmail;
+    private boolean videoActive;
     private Map<String, User> users = new ConcurrentHashMap<>();
     private List<DrawingElement> elements = Collections.synchronizedList(new ArrayList<>());
     private List<ChatMessage> messages = Collections.synchronizedList(new ArrayList<>());
@@ -42,6 +44,22 @@ public class Room {
 
     public void setHostUserId(String hostUserId) {
         this.hostUserId = hostUserId;
+    }
+
+    public String getHostEmail() {
+        return hostEmail;
+    }
+
+    public void setHostEmail(String hostEmail) {
+        this.hostEmail = hostEmail;
+    }
+
+    public boolean isVideoActive() {
+        return videoActive;
+    }
+
+    public void setVideoActive(boolean videoActive) {
+        this.videoActive = videoActive;
     }
 
     public Map<String, User> getUsers() {

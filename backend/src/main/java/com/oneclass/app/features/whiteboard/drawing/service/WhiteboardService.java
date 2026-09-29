@@ -5,6 +5,7 @@ import com.oneclass.app.features.whiteboard.room.model.Room;
 import com.oneclass.app.features.whiteboard.room.service.RoomService;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -43,6 +44,18 @@ public class WhiteboardService {
         }
 
         optionalRoom.get().clearElements();
+        return true;
+    }
+
+    public boolean syncSnapshot(String roomCode, String userId, List<DrawingElement> elements) {
+        Optional<Room> optionalRoom = roomService.getAuthorizedEditorRoom(roomCode, userId);
+        if (optionalRoom.isEmpty() || elements == null) {
+            return false;
+        }
+
+        Room room = optionalRoom.get();
+        room.clearElements();
+        room.getElements().addAll(elements);
         return true;
     }
 }

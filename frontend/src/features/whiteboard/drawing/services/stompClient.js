@@ -1,5 +1,4 @@
 import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 
 class StompService {
   constructor() {
@@ -30,6 +29,9 @@ class StompService {
 
     this.connecting = true;
 
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const brokerUrl = `${protocol}//${window.location.host}/ws-whiteboard`;
+
     if (this.client) {
       try {
         this.client.deactivate();
@@ -40,7 +42,7 @@ class StompService {
     }
 
     const client = new Client({
-      webSocketFactory: () => new SockJS('/ws-whiteboard'),
+      brokerURL: brokerUrl,
       reconnectDelay: 3000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
