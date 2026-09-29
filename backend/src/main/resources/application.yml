@@ -20,6 +20,11 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 20MB
+
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -38,6 +43,7 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}   # 24 hours
   otp:
     expiration-minutes: ${OTP_EXPIRATION_MINUTES:10}
+  upload-dir: ${UPLOAD_DIR:${java.io.tmpdir}/oneclass-uploads}
   livekit:
     # Use wss:// for LiveKit Cloud/production or ws://localhost:7880 for local development.
     url: ${LIVEKIT_URL:}
